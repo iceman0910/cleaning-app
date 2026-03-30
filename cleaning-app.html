@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🧽 每日清潔日誌</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'PingFang TC', 'Noto Sans TC', sans-serif;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  min-height: 100vh; color: #e2e8f0;
+}
+
+/* ── Overlay / Modal ── */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.82);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px;
+}
+.modal {
+  background: #1e293b; border-radius: 20px; padding: 32px;
+  width: 100%; max-width: 340px;
+  border: 1px solid #334155; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.modal-icon { font-size: 36px; text-align: center; margin-bottom: 12px; }
+.modal-title { text-align: center; font-size: 18px; font-weight: 700; color: #f1f5f9; margin-bottom: 6px; }
+.modal-sub { text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 20px; }
+.modal input {
+  width: 100%; padding: 12px 16px; border-radius: 12px;
+  border: 1px solid #475569; background: #0f172a;
+  color: #f1f5f9; font-size: 15px; outline: none;
+  margin-bottom: 12px; font-family: inherit;
+}
+.modal input:focus { border-color: #3b82f6; }
+
+/* ── Buttons ── */
+.btn-primary {
+  width: 100%; padding: 12px; border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  border: none; color: white; font-size: 15px; font-weight: 700;
+  cursor: pointer; font-family: inherit; margin-bottom: 8px;
+}
+.btn-secondary {
+  width: 100%; padding: 10px; border-radius: 12px;
+  background: transparent; border: 1px solid #334155;
+  color: #94a3b8; font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.btn-danger {
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.btn-sm {
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3);
+  color: #93c5fd; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+
+/* ── Header ── */
+.header {
+  background: linear-gradient(135deg, #1e40af, #4f46e5);
+  padding: 24px 20px 28px; position: relative; overflow: hidden;
+}
+.header::after {
+  content: ''; position: absolute; top: -30px; right: -30px;
+  width: 120px; height: 120px; border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+}
+.header-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.header-title { font-size: 22px; font-weight: 800; color: white; }
+.header-sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+.sync-info { font-size: 11px; color: rgba(255,255,255,0.6); text-align: right; }
+.name-btn {
+  margin-top: 6px; padding: 4px 12px; border-radius: 20px;
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  color: white; font-size: 12px; cursor: pointer; font-family: inherit; display: block;
+}
+.admin-badge {
+  display: inline-block; margin-left: 6px; background: #f59e0b;
+  color: #000; font-size: 10px; padding: 1px 6px; border-radius: 10px; font-weight: 700;
+}
+.progress-label { display: flex; justify-content: space-between; font-size: 13px; color: rgba(255,255,255,0.8); margin-bottom: 8px; }
+.progress-bar-bg { height: 10px; border-radius: 10px; background: rgba(255,255,255,0.2); overflow: hidden; }
+.progress-bar-fill { height: 100%; border-radius: 10px; background: rgba(255,255,255,0.9); transition: width 0.5s ease; }
+.progress-bar-fill.done { background: #22c55e; }
+.done-msg { text-align: center; margin-top: 10px; font-size: 14px; color: #86efac; font-weight: 700; }
+
+/* ── Tabs ── */
+.tabs {
+  display: flex; margin: 0 16px; margin-top: -16px;
+  background: #1e293b; border-radius: 16px; padding: 4px;
+  border: 1px solid #334155; gap: 4px; position: relative; z-index: 1;
+}
+.tab-btn {
+  flex: 1; padding: 10px 0; border-radius: 12px; border: none;
+  background: transparent; color: #94a3b8;
+  font-size: 12px; cursor: pointer; transition: all 0.2s; font-family: inherit;
+}
+.tab-btn.active { background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; font-weight: 700; }
+.tab-btn.admin-tab.active { background: linear-gradient(135deg, #d97706, #f59e0b); color: #000; }
+
+/* ── Content ── */
+.content { padding: 16px; }
+.date-label { text-align: center; font-size: 13px; color: #94a3b8; margin-bottom: 8px; }
+.area-filter { display: flex; gap: 8px; overflow-x: auto; padding: 8px 0; margin-bottom: 8px; scrollbar-width: none; }
+.area-filter::-webkit-scrollbar { display: none; }
+.area-btn {
+  padding: 6px 14px; border-radius: 20px; border: none;
+  white-space: nowrap; background: #334155; color: #94a3b8;
+  font-size: 12px; cursor: pointer; flex-shrink: 0; font-family: inherit; transition: all 0.2s;
+}
+.area-btn.active { background: #3b82f6; color: white; font-weight: 700; }
+
+/* ── Item Cards ── */
+.items-list { display: flex; flex-direction: column; gap: 10px; }
+.item-card {
+  border-radius: 16px; background: #1e293b; border: 1px solid #334155;
+  overflow: hidden; transition: all 0.2s;
+}
+.item-card.checked {
+  background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(16,185,129,0.08));
+  border-color: rgba(34,197,94,0.4);
+}
+.item-card.needs-photo {
+  border-color: rgba(251,191,36,0.4);
+  background: linear-gradient(135deg, rgba(251,191,36,0.06), rgba(245,158,11,0.04));
+}
+.item-card.needs-photo.checked {
+  border-color: rgba(34,197,94,0.4);
+  background: linear-gradient(135deg, rgba(34,197,94,0.12), rgba(16,185,129,0.08));
+}
+.item-main {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px; cursor: pointer; width: 100%;
+  background: none; border: none; text-align: left; font-family: inherit; color: inherit;
+}
+.check-box {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  background: #334155; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; font-size: 16px; color: white;
+}
+.check-box.checked { background: #22c55e; }
+.check-box.uploading { background: #f59e0b; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.item-icon { font-size: 22px; flex-shrink: 0; }
+.item-info { flex: 1; min-width: 0; }
+.item-name { font-weight: 600; font-size: 15px; color: #e2e8f0; }
+.item-name.checked { color: #86efac; }
+.item-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.photo-badge {
+  font-size: 10px; padding: 2px 7px; border-radius: 10px;
+  background: rgba(251,191,36,0.2); color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.3); flex-shrink: 0;
+}
+
+/* ── Photo preview strip ── */
+.photo-strip {
+  padding: 0 16px 12px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+}
+.photo-strip::-webkit-scrollbar { display: none; }
+.photo-thumb {
+  width: 72px; height: 72px; border-radius: 10px; object-fit: cover;
+  flex-shrink: 0; cursor: pointer; border: 2px solid #334155;
+  transition: border-color 0.2s;
+}
+.photo-thumb:hover { border-color: #3b82f6; }
+.photo-add-btn {
+  width: 72px; height: 72px; border-radius: 10px; flex-shrink: 0;
+  background: #334155; border: 2px dashed #475569;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; gap: 4px; color: #64748b; font-size: 11px; font-family: inherit;
+}
+.photo-add-btn:hover { border-color: #3b82f6; color: #93c5fd; }
+
+/* ── Photo Viewer Modal ── */
+.photo-viewer {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.95);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 300;
+}
+.photo-viewer img {
+  max-width: 100%; max-height: 75vh; border-radius: 12px; object-fit: contain;
+}
+.photo-viewer-info { margin-top: 12px; font-size: 13px; color: #94a3b8; text-align: center; }
+.photo-viewer-actions { display: flex; gap: 12px; margin-top: 16px; }
+.photo-viewer-close {
+  position: absolute; top: 20px; right: 20px;
+  background: rgba(255,255,255,0.1); border: none; color: white;
+  width: 40px; height: 40px; border-radius: 50%; font-size: 20px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── History ── */
+.history-list { display: flex; flex-direction: column; gap: 10px; }
+.history-card {
+  padding: 14px 16px; border-radius: 16px; background: #1e293b;
+  border: 1px solid #334155; cursor: pointer; text-align: left;
+  width: 100%; font-family: inherit; transition: all 0.2s;
+}
+.history-card.selected { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
+.history-row { display: flex; justify-content: space-between; align-items: center; }
+.history-date { font-weight: 700; font-size: 14px; color: #e2e8f0; }
+.history-count { font-size: 11px; color: #64748b; margin-top: 2px; }
+.mini-bar-bg { height: 4px; border-radius: 4px; background: #334155; margin-top: 10px; overflow: hidden; }
+.mini-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.detail-box { background: #1e293b; border-radius: 16px; border: 1px solid #334155; padding: 16px; margin-top: 10px; }
+.detail-title { font-weight: 700; font-size: 15px; margin-bottom: 12px; color: #e2e8f0; }
+.detail-item { padding: 10px 0; border-bottom: 1px solid #0f172a; }
+.detail-item:last-child { border-bottom: none; }
+.detail-item-row { display: flex; align-items: center; gap: 10px; }
+.detail-photos { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.detail-photo-thumb {
+  width: 60px; height: 60px; border-radius: 8px; object-fit: cover;
+  cursor: pointer; border: 1px solid #334155;
+}
+
+/* ── Admin ── */
+.admin-section { margin-bottom: 20px; }
+.admin-section-title {
+  font-size: 13px; font-weight: 700; color: #f59e0b;
+  text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px solid #334155;
+}
+.admin-card {
+  background: #1e293b; border: 1px solid #334155;
+  border-radius: 12px; padding: 12px 16px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 12px;
+}
+.admin-card-info { flex: 1; min-width: 0; }
+.admin-card-name { font-size: 14px; font-weight: 600; color: #e2e8f0; }
+.admin-card-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.add-item-form {
+  background: #1e293b; border: 1px solid #334155;
+  border-radius: 12px; padding: 16px; margin-bottom: 8px;
+}
+.add-item-form input, .add-item-form select {
+  width: 100%; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid #475569; background: #0f172a;
+  color: #f1f5f9; font-size: 14px; outline: none;
+  margin-bottom: 8px; font-family: inherit;
+}
+.add-item-form input:focus, .add-item-form select:focus { border-color: #3b82f6; }
+.add-item-form select option { background: #1e293b; }
+.form-row { display: flex; gap: 8px; }
+.form-row input { margin-bottom: 0; }
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid #334155; margin-top: 4px;
+}
+.toggle-label { font-size: 13px; color: #e2e8f0; }
+.toggle-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.toggle-switch {
+  width: 44px; height: 24px; border-radius: 12px; border: none;
+  background: #334155; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle-switch.on { background: #f59e0b; }
+.toggle-switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%; background: white;
+  transition: left 0.2s;
+}
+.toggle-switch.on::after { left: 23px; }
+.admin-logout-btn {
+  width: 100%; padding: 12px; border-radius: 12px;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  color: #f87171; font-size: 14px; cursor: pointer; font-family: inherit; margin-top: 8px;
+}
+
+/* ── Misc ── */
+.empty { text-align: center; padding: 60px; color: #64748b; }
+.empty-icon { font-size: 40px; margin-bottom: 12px; }
+.loading { text-align: center; padding: 40px; color: #64748b; }
+.refresh-btn {
+  width: 100%; margin-top: 16px; padding: 12px; border-radius: 12px;
+  border: 1px solid #334155; background: #1e293b; color: #94a3b8;
+  font-size: 13px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; gap: 6px; font-family: inherit;
+}
+.admin-tap-zone { position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; z-index: 50; }
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
+  padding: 10px 20px; border-radius: 20px; font-size: 13px;
+  z-index: 400; opacity: 0; transition: opacity 0.3s;
+  white-space: nowrap; pointer-events: none;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- Hidden file input -->
+<input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
+
+<!-- Name Modal -->
+<div class="overlay" id="nameModal">
+  <div class="modal">
+    <div class="modal-icon">👤</div>
+    <div class="modal-title">請輸入您的名稱</div>
+    <div class="modal-sub">讓隊友知道是誰完成了清潔工作</div>
+    <input id="nameInput" placeholder="例如：小明、清潔組A" />
+    <button class="btn-primary" onclick="saveName()">確認</button>
+  </div>
+</div>
+
+<!-- Admin Password Modal -->
+<div class="overlay" id="adminModal" style="display:none">
+  <div class="modal">
+    <div class="modal-icon">🔐</div>
+    <div class="modal-title">管理者登入</div>
+    <div class="modal-sub">請輸入管理者密碼</div>
+    <input id="adminPwInput" type="password" placeholder="密碼" />
+    <div id="adminPwError" style="color:#f87171;font-size:12px;text-align:center;margin-bottom:10px;display:none">密碼錯誤，請再試一次</div>
+    <button class="btn-primary" onclick="checkAdminPw()">進入管理模式</button>
+    <button class="btn-secondary" onclick="closeAdminModal()">取消</button>
+  </div>
+</div>
+
+<!-- Photo Viewer -->
+<div class="photo-viewer" id="photoViewer" style="display:none">
+  <button class="photo-viewer-close" onclick="closePhotoViewer()">✕</button>
+  <img id="viewerImg" src="" alt="清潔照片">
+  <div class="photo-viewer-info" id="viewerInfo"></div>
+  <div class="photo-viewer-actions" id="viewerActions"></div>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-row">
+    <div>
+      <div class="header-title">🧽 清潔日誌</div>
+      <div class="header-sub">多人協作 · 即時同步</div>
+    </div>
+    <div>
+      <div class="sync-info" id="syncInfo">連線中...</div>
+      <button class="name-btn" onclick="showNameModal()">
+        👤 <span id="nameDisplay">設定名稱</span>
+        <span id="adminBadge" class="admin-badge" style="display:none">管理者</span>
+      </button>
+    </div>
+  </div>
+  <div id="progressSection">
+    <div class="progress-label">
+      <span>今日進度</span>
+      <span id="progressCount">0 / 0</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="progressBar" style="width:0%"></div>
+    </div>
+    <div class="done-msg" id="doneMsg" style="display:none">🎉 今日清潔全部完成！</div>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs" id="tabsRow">
+  <button class="tab-btn active" id="tabToday" onclick="switchTab('today')">📋 今日清潔</button>
+  <button class="tab-btn" id="tabHistory" onclick="switchTab('history')">📅 歷史紀錄</button>
+  <button class="tab-btn admin-tab" id="tabAdmin" onclick="switchTab('admin')" style="display:none">⚙️ 管理</button>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Today Panel -->
+  <div id="todayPanel">
+    <div class="date-label" id="dateLabel"></div>
+    <div class="area-filter" id="areaFilter"></div>
+    <div id="itemsList" class="items-list"><div class="loading">載入中...</div></div>
+    <button class="refresh-btn" onclick="loadAll()">🔄 手動刷新同步</button>
+  </div>
+
+  <!-- History Panel -->
+  <div id="historyPanel" style="display:none">
+    <div id="historyList" class="history-list"><div class="loading">載入中...</div></div>
+    <div id="historyDetail"></div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminPanel" style="display:none">
+
+    <div class="admin-section">
+      <div class="admin-section-title">✏️ 清潔項目管理</div>
+      <div id="adminItemsList"></div>
+      <div class="add-item-form">
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:10px;font-weight:600">新增項目</div>
+        <div class="form-row" style="margin-bottom:8px">
+          <input id="newIcon" placeholder="圖示 🧹" style="width:80px;flex-shrink:0" maxlength="4" />
+          <input id="newLabel" placeholder="項目名稱" style="flex:1" />
+        </div>
+        <select id="newArea">
+          <option value="">選擇區域</option>
+          <option>全區</option><option>廁所</option><option>辦公區</option>
+          <option>廚房</option><option>入口</option>
+        </select>
+        <input id="newCustomArea" placeholder="或輸入自訂區域名稱（選填）" />
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">📸 需要拍照才算完成</div>
+            <div class="toggle-sub">開啟後，需拍照上傳才能勾選完成</div>
+          </div>
+          <button class="toggle-switch" id="newRequirePhoto" onclick="toggleNewRequirePhoto()"></button>
+        </div>
+        <button class="btn-primary" onclick="addItem()" style="margin-top:12px">➕ 新增</button>
+      </div>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-section-title">👥 使用者名單</div>
+      <div id="adminUsersList"><div class="loading">載入中...</div></div>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-section-title">🗑️ 紀錄管理</div>
+      <div id="adminRecordsList"><div class="loading">載入中...</div></div>
+    </div>
+
+    <button class="admin-logout-btn" onclick="adminLogout()">🚪 退出管理模式</button>
+  </div>
+</div>
+
+<div class="admin-tap-zone" id="adminTapZone"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref as dbRef, set, remove, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getStorage, ref as stRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCOK7NJml8KR40Z7yrOQVzH5aAUdKA_edo",
+  authDomain: "cleaning-app-d9638.firebaseapp.com",
+  databaseURL: "https://cleaning-app-d9638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "cleaning-app-d9638",
+  storageBucket: "cleaning-app-d9638.firebasestorage.app",
+  messagingSenderId: "422256495385",
+  appId: "1:422256495385:web:19650bb0a6fb1c59381388"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const storage = getStorage(app);
+
+// ── Default Items ──
+const DEFAULT_ITEMS = [
+  { id:"floor",     icon:"🧹", label:"地板清掃",       area:"全區",  requirePhoto:false, order:0 },
+  { id:"toilet",    icon:"🚽", label:"廁所消毒",       area:"廁所",  requirePhoto:false, order:1 },
+  { id:"sink",      icon:"🚿", label:"洗手台清潔",     area:"廁所",  requirePhoto:false, order:2 },
+  { id:"mirror",    icon:"🪞", label:"鏡面擦拭",       area:"廁所",  requirePhoto:false, order:3 },
+  { id:"trash",     icon:"🗑️", label:"垃圾清除",       area:"全區",  requirePhoto:false, order:4 },
+  { id:"desk",      icon:"🪣", label:"桌面擦拭",       area:"辦公區", requirePhoto:false, order:5 },
+  { id:"window",    icon:"🪟", label:"窗戶清潔",       area:"辦公區", requirePhoto:false, order:6 },
+  { id:"kitchen",   icon:"🍳", label:"廚房清潔",       area:"廚房",  requirePhoto:false, order:7 },
+  { id:"fridge",    icon:"🧊", label:"冰箱整理",       area:"廚房",  requirePhoto:false, order:8 },
+  { id:"microwave", icon:"📦", label:"微波爐清潔",     area:"廚房",  requirePhoto:false, order:9 },
+  { id:"entrance",  icon:"🚪", label:"門口掃地",       area:"入口",  requirePhoto:false, order:10 },
+  { id:"disinfect", icon:"🧴", label:"公共區域消毒噴灑", area:"全區",  requirePhoto:false, order:11 },
+];
+
+// ── State ──
+let ITEMS = [];
+let currentTab = "today";
+let filterArea = "全部";
+let todayRecord = {};
+let allRecords = {};
+let allUsers = {};
+let selectedHistory = null;
+let isAdmin = false;
+let newRequirePhoto = false;
+let pendingPhotoItemId = null;
+let viewerPhotoUrl = null;
+let viewerPhotoPath = null;
+let viewerItemId = null;
+let viewerIsToday = false;
+
+const ADMIN_PASSWORD = "admin1234"; // ← 可改成你的密碼
+
+function getTodayKey() { return new Date().toISOString().split("T")[0]; }
+const TODAY = getTodayKey();
+
+function getUserId() {
+  let uid = localStorage.getItem("cleaner_uid");
+  if (!uid) { uid = "u_" + Math.random().toString(36).slice(2,8); localStorage.setItem("cleaner_uid", uid); }
+  return uid;
+}
+function getUserName() { return localStorage.getItem("cleaner_name") || ""; }
+const UID = getUserId();
+
+function formatDate(d) {
+  return new Date(d).toLocaleDateString("zh-TW", { year:"numeric", month:"long", day:"numeric", weekday:"long" });
+}
+function timeNow() { return new Date().toLocaleTimeString("zh-TW", { hour:"2-digit", minute:"2-digit" }); }
+
+// ── Toast ──
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// ── Name Modal ──
+window.saveName = function() {
+  const v = document.getElementById("nameInput").value.trim();
+  if (!v) return;
+  localStorage.setItem("cleaner_name", v);
+  document.getElementById("nameDisplay").textContent = v;
+  document.getElementById("nameModal").style.display = "none";
+  set(dbRef(db, "users/" + UID), { name: v, lastSeen: timeNow(), date: TODAY });
+};
+window.showNameModal = function() {
+  document.getElementById("nameModal").style.display = "flex";
+  document.getElementById("nameInput").value = getUserName();
+};
+document.getElementById("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") window.saveName(); });
+
+if (getUserName()) {
+  document.getElementById("nameDisplay").textContent = getUserName();
+  document.getElementById("nameModal").style.display = "none";
+  set(dbRef(db, "users/" + UID), { name: getUserName(), lastSeen: timeNow(), date: TODAY });
+} else {
+  document.getElementById("nameModal").style.display = "flex";
+}
+
+// ── Admin Modal ──
+window.checkAdminPw = function() {
+  const pw = document.getElementById("adminPwInput").value;
+  if (pw === ADMIN_PASSWORD) {
+    isAdmin = true;
+    document.getElementById("adminModal").style.display = "none";
+    document.getElementById("adminPwInput").value = "";
+    document.getElementById("adminPwError").style.display = "none";
+    document.getElementById("tabAdmin").style.display = "";
+    document.getElementById("adminBadge").style.display = "";
+    switchTab("admin");
+    showToast("✅ 已進入管理模式");
+  } else {
+    document.getElementById("adminPwError").style.display = "block";
+  }
+};
+window.closeAdminModal = function() {
+  document.getElementById("adminModal").style.display = "none";
+  document.getElementById("adminPwInput").value = "";
+  document.getElementById("adminPwError").style.display = "none";
+};
+window.adminLogout = function() {
+  isAdmin = false;
+  document.getElementById("tabAdmin").style.display = "none";
+  document.getElementById("adminBadge").style.display = "none";
+  switchTab("today");
+  showToast("已退出管理模式");
+};
+
+// ── Admin tap zone ──
+let tapCount = 0, tapTimer = null;
+document.getElementById("adminTapZone").addEventListener("click", () => {
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => tapCount = 0, 2000);
+  if (tapCount >= 5) {
+    tapCount = 0;
+    if (isAdmin) { adminLogout(); return; }
+    document.getElementById("adminModal").style.display = "flex";
+    setTimeout(() => document.getElementById("adminPwInput").focus(), 100);
+  }
+});
+
+// ── New item requirePhoto toggle ──
+window.toggleNewRequirePhoto = function() {
+  newRequirePhoto = !newRequirePhoto;
+  const btn = document.getElementById("newRequirePhoto");
+  btn.className = "toggle-switch" + (newRequirePhoto ? " on" : "");
+};
+
+// ── Date label ──
+document.getElementById("dateLabel").textContent = formatDate(TODAY);
+
+// ── Firebase Listeners ──
+function listenItems() {
+  onValue(dbRef(db, "items"), snap => {
+    const data = snap.val();
+    if (data) {
+      ITEMS = Object.values(data).sort((a,b) => (a.order||0)-(b.order||0));
+    } else {
+      const obj = {};
+      DEFAULT_ITEMS.forEach((item,i) => { obj[item.id] = { ...item, order:i }; });
+      set(dbRef(db, "items"), obj);
+      ITEMS = [...DEFAULT_ITEMS];
+    }
+    renderAreaFilter();
+    renderItems();
+    updateProgress();
+    if (currentTab === "admin") renderAdminItems();
+  });
+}
+
+function listenRecords() {
+  onValue(dbRef(db, "records"), snap => {
+    allRecords = snap.val() || {};
+    todayRecord = allRecords[TODAY] || {};
+    renderItems();
+    updateProgress();
+    if (currentTab === "history") renderHistory();
+    if (currentTab === "admin") renderAdminRecords();
+    updateSyncTime();
+  });
+}
+
+function listenUsers() {
+  onValue(dbRef(db, "users"), snap => {
+    allUsers = snap.val() || {};
+    if (currentTab === "admin") renderAdminUsers();
+  });
+}
+
+window.loadAll = function() {
+  document.getElementById("syncInfo").textContent = "🔄 刷新中...";
+  get(dbRef(db, "records/" + TODAY)).then(snap => {
+    todayRecord = snap.val() || {};
+    renderItems(); updateProgress(); updateSyncTime();
+  });
+};
+
+function updateSyncTime() {
+  const t = new Date().toLocaleTimeString("zh-TW", { hour:"2-digit", minute:"2-digit" });
+  document.getElementById("syncInfo").textContent = `✅ ${t} 已同步`;
+}
+
+// ── Photo Upload ──
+const photoInput = document.getElementById("photoInput");
+
+function triggerPhoto(itemId) {
+  pendingPhotoItemId = itemId;
+  photoInput.value = "";
+  photoInput.click();
+}
+
+photoInput.addEventListener("change", async () => {
+  const file = photoInput.files[0];
+  if (!file || !pendingPhotoItemId) return;
+  const itemId = pendingPhotoItemId;
+  const name = getUserName();
+  if (!name) { window.showNameModal(); return; }
+
+  // Show uploading state
+  showToast("📤 上傳照片中...");
+  setItemUploading(itemId, true);
+
+  try {
+    // Compress image
+    const compressed = await compressImage(file, 1200, 0.75);
+    const fileName = `${TODAY}/${itemId}_${Date.now()}.jpg`;
+    const photoRef = stRef(storage, `photos/${fileName}`);
+    await uploadBytes(photoRef, compressed);
+    const url = await getDownloadURL(photoRef);
+
+    // Save record
+    const existingPhotos = todayRecord[itemId]?.photos || [];
+    const newPhoto = { url, path: `photos/${fileName}`, by: name, uid: UID, time: timeNow() };
+    const updatedRecord = {
+      ...todayRecord,
+      [itemId]: {
+        by: name, uid: UID, time: timeNow(),
+        photos: [...existingPhotos, newPhoto]
+      }
+    };
+    todayRecord = updatedRecord;
+    allRecords[TODAY] = updatedRecord;
+    await set(dbRef(db, "records/" + TODAY), updatedRecord);
+    renderItems(); updateProgress();
+    showToast("✅ 照片上傳完成，項目已完成！");
+  } catch(e) {
+    console.error(e);
+    showToast("❌ 上傳失敗，請再試一次");
+  }
+  setItemUploading(itemId, false);
+});
+
+function setItemUploading(itemId, val) {
+  const el = document.querySelector(`[data-item-id="${itemId}"] .check-box`);
+  if (el) el.className = "check-box" + (val ? " uploading" : "");
+}
+
+async function compressImage(file, maxSize, quality) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => { URL.revokeObjectURL(url); resolve(blob); }, "image/jpeg", quality);
+    };
+    img.src = url;
+  });
+}
+
+// ── Uncheck item (only if no photo required, or admin) ──
+window.uncheckItem = async function(itemId) {
+  const item = ITEMS.find(i => i.id === itemId);
+  if (!item) return;
+  const rec = todayRecord[itemId];
+  if (!rec) return;
+  if (item.requirePhoto && !isAdmin) {
+    showToast("⚠️ 需要拍照才能完成此項目");
+    return;
+  }
+  const newRecord = { ...todayRecord };
+  delete newRecord[itemId];
+  todayRecord = newRecord;
+  allRecords[TODAY] = newRecord;
+  renderItems(); updateProgress();
+  await set(dbRef(db, "records/" + TODAY), newRecord);
+};
+
+// ── Photo Viewer ──
+window.openPhotoViewer = function(url, path, info, itemId, isToday) {
+  viewerPhotoUrl = url; viewerPhotoPath = path; viewerItemId = itemId; viewerIsToday = isToday;
+  document.getElementById("viewerImg").src = url;
+  document.getElementById("viewerInfo").textContent = info;
+  const actions = document.getElementById("viewerActions");
+  actions.innerHTML = "";
+  if (isAdmin && path) {
+    const delBtn = document.createElement("button");
+    delBtn.className = "btn-danger";
+    delBtn.textContent = "🗑️ 刪除照片";
+    delBtn.onclick = deleteViewerPhoto;
+    actions.appendChild(delBtn);
+  }
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "btn-secondary"; closeBtn.style.width = "auto"; closeBtn.style.padding = "8px 20px";
+  closeBtn.textContent = "關閉";
+  closeBtn.onclick = closePhotoViewer;
+  actions.appendChild(closeBtn);
+  document.getElementById("photoViewer").style.display = "flex";
+};
+
+window.closePhotoViewer = function() {
+  document.getElementById("photoViewer").style.display = "none";
+  document.getElementById("viewerImg").src = "";
+};
+
+async function deleteViewerPhoto() {
+  if (!confirm("確定刪除這張照片？")) return;
+  closePhotoViewer();
+  try {
+    if (viewerPhotoPath) await deleteObject(stRef(storage, viewerPhotoPath));
+  } catch(e) { console.warn("Storage delete:", e); }
+  // Remove from record
+  const rec = todayRecord[viewerItemId];
+  if (rec && rec.photos) {
+    const newPhotos = rec.photos.filter(p => p.path !== viewerPhotoPath);
+    const item = ITEMS.find(i => i.id === viewerItemId);
+    const newRecord = { ...todayRecord };
+    if (newPhotos.length === 0 && item?.requirePhoto) {
+      delete newRecord[viewerItemId];
+    } else if (newPhotos.length === 0) {
+      delete newRecord[viewerItemId];
+    } else {
+      newRecord[viewerItemId] = { ...rec, photos: newPhotos };
+    }
+    todayRecord = newRecord;
+    allRecords[TODAY] = newRecord;
+    await set(dbRef(db, "records/" + TODAY), newRecord);
+    renderItems(); updateProgress();
+    showToast("🗑️ 照片已刪除");
+  }
+}
+
+// ── Area Filter ──
+function renderAreaFilter() {
+  const areas = ["全部", ...new Set(ITEMS.map(i => i.area))];
+  const el = document.getElementById("areaFilter");
+  el.innerHTML = areas.map(area => `
+    <button class="area-btn ${filterArea === area ? 'active' : ''}" onclick="setArea('${area}')">${area}</button>
+  `).join('');
+}
+window.setArea = function(area) { filterArea = area; renderAreaFilter(); renderItems(); };
+
+// ── Render Items ──
+function renderItems() {
+  const list = document.getElementById("itemsList");
+  if (ITEMS.length === 0) { list.innerHTML = '<div class="loading">載入中...</div>'; return; }
+  const filtered = filterArea === "全部" ? ITEMS : ITEMS.filter(i => i.area === filterArea);
+
+  list.innerHTML = filtered.map(item => {
+    const rec = todayRecord[item.id];
+    const checked = !!rec;
+    const photos = rec?.photos || [];
+    const needPhoto = !!item.requirePhoto;
+    const isMe = rec?.uid === UID;
+
+    let subText = "";
+    if (checked) {
+      subText = `✅ ${rec.by} 完成於 ${rec.time}`;
+      if (needPhoto && photos.length > 0) subText += ` · 📸 ${photos.length}張`;
+    } else if (needPhoto) {
+      subText = `📸 需拍照才算完成 · 📍 ${item.area}`;
+    } else {
+      subText = `📍 ${item.area}`;
+    }
+
+    const photoStrip = (checked && photos.length > 0) ? `
+      <div class="photo-strip">
+        ${photos.map((p,idx) => `
+          <img class="photo-thumb" src="${p.url}" alt="照片"
+            onclick="openPhotoViewer('${p.url}','${p.path}','${p.by} · ${p.time}','${item.id}',true)">
+        `).join('')}
+        ${checked && TODAY === getTodayKey() ? `
+          <button class="photo-add-btn" onclick="triggerPhotoFor('${item.id}')">
+            <span style="font-size:20px">📷</span>
+            <span>補拍</span>
+          </button>
+        ` : ''}
+      </div>
+    ` : "";
+
+    return `
+      <div class="item-card ${checked ? 'checked' : ''} ${needPhoto && !checked ? 'needs-photo' : ''}" data-item-id="${item.id}">
+        <button class="item-main" onclick="handleItemClick('${item.id}')">
+          <div class="check-box ${checked ? 'checked' : ''}">${checked ? '✓' : (needPhoto ? '📷' : '○')}</div>
+          <div class="item-icon">${item.icon}</div>
+          <div class="item-info">
+            <div class="item-name ${checked ? 'checked' : ''}">${item.label}</div>
+            <div class="item-sub">${subText}</div>
+          </div>
+          ${needPhoto && !checked ? '<span class="photo-badge">需拍照</span>' : ''}
+          ${isMe && checked ? '<span style="font-size:10px;color:#64748b;flex-shrink:0">（我）</span>' : ''}
+        </button>
+        ${photoStrip}
+      </div>`;
+  }).join('');
+}
+
+function getTodayKey() { return new Date().toISOString().split("T")[0]; }
+
+window.handleItemClick = function(itemId) {
+  const name = getUserName();
+  if (!name) { window.showNameModal(); return; }
+  const item = ITEMS.find(i => i.id === itemId);
+  if (!item) return;
+  const rec = todayRecord[itemId];
+
+  if (rec) {
+    // Already checked — uncheck
+    window.uncheckItem(itemId);
+  } else if (item.requirePhoto) {
+    // Need photo → open camera
+    triggerPhoto(itemId);
+  } else {
+    // Normal check
+    doCheck(itemId);
+  }
+};
+
+window.triggerPhotoFor = function(itemId) { triggerPhoto(itemId); };
+
+async function doCheck(itemId) {
+  const name = getUserName();
+  const newRecord = { ...todayRecord, [itemId]: { by: name, uid: UID, time: timeNow(), photos: [] } };
+  todayRecord = newRecord; allRecords[TODAY] = newRecord;
+  renderItems(); updateProgress();
+  await set(dbRef(db, "records/" + TODAY), newRecord);
+}
+
+// ── Progress ──
+function updateProgress() {
+  const total = ITEMS.length;
+  const cnt = Object.keys(todayRecord).length;
+  const pct = total > 0 ? Math.round(cnt / total * 100) : 0;
+  document.getElementById("progressCount").textContent = `${cnt} / ${total}`;
+  const bar = document.getElementById("progressBar");
+  bar.style.width = pct + "%";
+  bar.className = "progress-bar-fill" + (pct === 100 ? " done" : "");
+  document.getElementById("doneMsg").style.display = (pct === 100 && total > 0) ? "block" : "none";
+}
+
+// ── Tab Switch ──
+window.switchTab = function(tab) {
+  currentTab = tab;
+  ["today","history","admin"].forEach(t => {
+    document.getElementById(t+"Panel").style.display = t === tab ? "block" : "none";
+    const btn = document.getElementById("tab"+t.charAt(0).toUpperCase()+t.slice(1));
+    if (btn) btn.className = "tab-btn" + (t === tab ? " active" : "") + (t === "admin" ? " admin-tab" : "");
+  });
+  document.getElementById("progressSection").style.display = tab === "today" ? "block" : "none";
+  if (tab === "history") renderHistory();
+  if (tab === "admin") { renderAdminItems(); renderAdminUsers(); renderAdminRecords(); }
+};
+
+// ── History ──
+function renderHistory() {
+  const dates = Object.keys(allRecords).sort().reverse();
+  const list = document.getElementById("historyList");
+  if (dates.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>尚無歷史紀錄</div></div>';
+    return;
+  }
+  const total = ITEMS.length;
+  list.innerHTML = dates.map(date => {
+    const rec = allRecords[date] || {};
+    const cnt = Object.keys(rec).length;
+    const pct = total > 0 ? Math.round(cnt / total * 100) : 0;
+    const color = pct === 100 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
+    const isToday = date === TODAY;
+    const photoCount = Object.values(rec).reduce((s, v) => s + (v?.photos?.length || 0), 0);
+    return `
+      <button class="history-card ${selectedHistory === date ? 'selected' : ''}" onclick="selectHistory('${date}')">
+        <div class="history-row">
+          <div>
+            <div class="history-date">${isToday ? "📌 今天 · " : ""}${formatDate(date).slice(0,12)}</div>
+            <div class="history-count">完成 ${cnt} / ${total} 項${photoCount > 0 ? ` · 📸 ${photoCount}張` : ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:16px;font-weight:800;color:${color}">${pct}%</div>
+            <div style="font-size:10px;color:#64748b">完成率</div>
+          </div>
+        </div>
+        <div class="mini-bar-bg">
+          <div class="mini-bar-fill" style="width:${pct}%;background:${pct===100?'#22c55e':'#3b82f6'}"></div>
+        </div>
+      </button>`;
+  }).join('');
+  renderHistoryDetail();
+}
+
+window.selectHistory = function(date) {
+  selectedHistory = selectedHistory === date ? null : date;
+  renderHistory();
+};
+
+function renderHistoryDetail() {
+  const el = document.getElementById("historyDetail");
+  if (!selectedHistory) { el.innerHTML = ""; return; }
+  const rec = allRecords[selectedHistory] || {};
+  const isToday = selectedHistory === TODAY;
+  el.innerHTML = `
+    <div class="detail-box">
+      <div class="detail-title">📋 ${formatDate(selectedHistory)} 詳細紀錄</div>
+      ${ITEMS.map(item => {
+        const info = rec[item.id];
+        const photos = info?.photos || [];
+        return `
+          <div class="detail-item">
+            <div class="detail-item-row">
+              <span style="font-size:18px">${item.icon}</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:${info?600:400};color:${info?'#86efac':'#64748b'}">${item.label}${item.requirePhoto ? ' 📸' : ''}</div>
+                ${info ? `<div style="font-size:11px;color:#64748b">${info.by} · ${info.time}</div>` : ''}
+              </div>
+              <span>${info ? "✅" : "⬜"}</span>
+            </div>
+            ${photos.length > 0 ? `
+              <div class="detail-photos">
+                ${photos.map(p => `
+                  <img class="detail-photo-thumb" src="${p.url}"
+                    onclick="openPhotoViewer('${p.url}','${p.path}','${p.by} · ${p.time}','${item.id}',${isToday})">
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── Admin: Items ──
+function renderAdminItems() {
+  const el = document.getElementById("adminItemsList");
+  if (ITEMS.length === 0) { el.innerHTML = '<div class="loading">尚無項目</div>'; return; }
+  el.innerHTML = ITEMS.map(item => `
+    <div class="admin-card">
+      <span style="font-size:20px">${item.icon}</span>
+      <div class="admin-card-info">
+        <div class="admin-card-name">${item.label} ${item.requirePhoto ? '<span style="font-size:11px;color:#fbbf24">📸需拍照</span>' : ''}</div>
+        <div class="admin-card-sub">📍 ${item.area}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteItem('${item.id}')">刪除</button>
+    </div>
+  `).join('');
+}
+
+window.addItem = async function() {
+  const icon = document.getElementById("newIcon").value.trim() || "🔹";
+  const label = document.getElementById("newLabel").value.trim();
+  const areaSelect = document.getElementById("newArea").value;
+  const areaCustom = document.getElementById("newCustomArea").value.trim();
+  const area = areaCustom || areaSelect;
+  if (!label || !area) { showToast("⚠️ 請填寫項目名稱和區域"); return; }
+  const id = "item_" + Date.now();
+  const order = ITEMS.length;
+  await set(dbRef(db, "items/" + id), { id, icon, label, area, requirePhoto: newRequirePhoto, order });
+  document.getElementById("newIcon").value = "";
+  document.getElementById("newLabel").value = "";
+  document.getElementById("newArea").value = "";
+  document.getElementById("newCustomArea").value = "";
+  newRequirePhoto = false;
+  document.getElementById("newRequirePhoto").className = "toggle-switch";
+  showToast("✅ 已新增：" + label);
+};
+
+window.deleteItem = async function(itemId) {
+  if (!confirm("確定要刪除這個清潔項目嗎？\n（歷史紀錄不會被刪除）")) return;
+  await remove(dbRef(db, "items/" + itemId));
+  showToast("🗑️ 已刪除項目");
+};
+
+// ── Admin: Users ──
+function renderAdminUsers() {
+  const el = document.getElementById("adminUsersList");
+  const users = Object.entries(allUsers);
+  if (users.length === 0) { el.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px">尚無使用者紀錄</div>'; return; }
+  el.innerHTML = users.map(([uid, u]) => `
+    <div class="admin-card">
+      <span style="font-size:20px">👤</span>
+      <div class="admin-card-info">
+        <div class="admin-card-name">${u.name}</div>
+        <div class="admin-card-sub">最後活動：${u.date} ${u.lastSeen}</div>
+      </div>
+      <button class="btn-danger" onclick="deleteUser('${uid}','${u.name}')">刪除</button>
+    </div>
+  `).join('');
+}
+
+window.deleteUser = async function(uid, name) {
+  if (!confirm(`確定要刪除使用者「${name}」嗎？`)) return;
+  await remove(dbRef(db, "users/" + uid));
+  showToast("🗑️ 已刪除：" + name);
+};
+
+// ── Admin: Records ──
+function renderAdminRecords() {
+  const el = document.getElementById("adminRecordsList");
+  const dates = Object.keys(allRecords).sort().reverse();
+  if (dates.length === 0) { el.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px">尚無紀錄</div>'; return; }
+  el.innerHTML = dates.map(date => {
+    const cnt = Object.keys(allRecords[date] || {}).length;
+    const isToday = date === TODAY;
+    return `
+      <div class="admin-card">
+        <span style="font-size:20px">📅</span>
+        <div class="admin-card-info">
+          <div class="admin-card-name">${isToday ? "📌 今天 " : ""}${date}</div>
+          <div class="admin-card-sub">已完成 ${cnt} 項</div>
+        </div>
+        <button class="btn-danger" onclick="deleteRecord('${date}')">刪除</button>
+      </div>`;
+  }).join('');
+}
+
+window.deleteRecord = async function(date) {
+  if (!confirm(`確定要刪除 ${date} 的全部紀錄嗎？\n此操作無法復原。`)) return;
+  await remove(dbRef(db, "records/" + date));
+  if (date === TODAY) todayRecord = {};
+  showToast("🗑️ 已刪除 " + date + " 的紀錄");
+};
+
+// ── Init ──
+listenItems();
+listenRecords();
+listenUsers();
+updateProgress();
+</script>
+</body>
+</html>
