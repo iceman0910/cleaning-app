@@ -505,6 +505,8 @@ body {
     </div>
 
     <button class="admin-logout-btn" onclick="adminLogout()">🚪 退出管理模式</button>
+
+    <button onclick="location.reload()" style="width:100%;padding:12px;border-radius:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;font-size:14px;cursor:pointer;font-family:inherit;margin-top:8px">📅 重新整理到今天</button>
   </div>
 </div>
 
@@ -568,7 +570,13 @@ let viewerIsToday = false;
 
 const ADMIN_PASSWORD = "admin1234"; // ← 可改成你的密碼
 
-function getTodayKey() { return new Date().toISOString().split("T")[0]; }
+function getTodayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 const TODAY = getTodayKey();
 
 function getUserId() {
@@ -1532,12 +1540,12 @@ function renderTempTasks() {
 
 // ── Auto detect date change ──
 setInterval(() => {
-  const newDate = new Date().toISOString().split("T")[0];
+  const newDate = getTodayKey();
   if (newDate !== TODAY) {
     showToast("📅 日期已更新，自動重新整理...");
     setTimeout(() => location.reload(), 1500);
   }
-}, 60000); // 每分鐘檢查一次
+}, 60000);
 listenItems();
 listenRecords();
 listenUsers();
