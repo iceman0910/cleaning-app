@@ -1079,21 +1079,57 @@ async function saveItemOrder(container) {
 function renderAdminAreas() {
   const el = document.getElementById("adminAreaList");
   const areas = getOrderedAreas();
-  if (areas.length === 0) { el.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px">尚無區域</div>'; return; }
-  el.innerHTML = areas.map((area, idx) => `
-    <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}">
-      <span class="drag-handle" title="拖曳排序">⠿</span>
-      <div class="admin-card-info">
-        <div class="admin-card-name">${area}</div>
-        <div class="admin-card-sub">${ITEMS.filter(i => i.area === area).length} 個項目</div>
+  el.innerHTML = `
+    ${areas.length === 0 ? '<div style="color:#64748b;font-size:13px;padding:8px 0">尚無區域</div>' :
+      areas.map((area, idx) => `
+        <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}">
+          <span class="drag-handle" title="拖曳排序">⠿</span>
+          <div class="admin-card-info">
+            <div class="admin-card-name">${area}</div>
+            <div class="admin-card-sub">${ITEMS.filter(i => i.area === area).length} 個清潔項目</div>
+          </div>
+          <button class="btn-danger" onclick="deleteArea('${area}')">刪除</button>
+        </div>
+      `).join('')
+    }
+    <div class="add-item-form" style="margin-top:8px">
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:10px;font-weight:600">新增區域</div>
+      <div class="form-row">
+        <input id="newAreaName" placeholder="區域名稱，例如：倉庫" style="flex:1" />
+        <button class="btn-primary" onclick="addArea()" style="width:auto;padding:10px 16px;margin:0;flex-shrink:0">新增</button>
       </div>
     </div>
-  `).join('');
+  `;
   initDragSort(el, saveAreaOrder);
 }
 
+window.addArea = async function() {
+  const name = document.getElementById("newAreaName").value.trim();
+  if (!name) { showToast("⚠️ 請輸入區域名稱"); return; }
+  const areas = getOrderedAreas();
+  if (areas.includes(name)) { showToast("⚠️ 此區域已存在"); return; }
+  const newOrder = [...areas, name];
+  areaOrder = newOrder;
+  await set(dbRef(db, "areaOrder"), newOrder);
+  document.getElementById("newAreaName").value = "";
+  showToast("✅ 已新增區域：" + name);
+};
+
+window.deleteArea = async function(area) {
+  const itemsInArea = ITEMS.filter(i => i.area === area);
+  if (itemsInArea.length > 0) {
+    if (!confirm(`「${area}」區域內還有 ${itemsInArea.length} 個清潔項目，刪除區域後這些項目仍會保留但不屬於任何區域。\n確定要刪除嗎？`)) return;
+  } else {
+    if (!confirm(`確定要刪除「${area}」區域嗎？`)) return;
+  }
+  const newOrder = getOrderedAreas().filter(a => a !== area);
+  areaOrder = newOrder;
+  await set(dbRef(db, "areaOrder"), newOrder);
+  showToast("🗑️ 已刪除區域：" + area);
+};
+
 async function saveAreaOrder(container) {
-  const cards = container.querySelectorAll('.admin-card');
+  const cards = container.querySelectorAll('.admin-card[data-area]');
   const newOrder = Array.from(cards).map(c => c.dataset.area);
   areaOrder = newOrder;
   await set(dbRef(db, "areaOrder"), newOrder);
