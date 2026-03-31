@@ -1120,8 +1120,9 @@ window.addArea = async function() {
   const newOrder = [...areas, name];
   areaOrder = newOrder;
   await set(dbRef(db, "areaOrder"), newOrder);
-  document.getElementById("newAreaName").value = "";
   showToast("✅ 已新增區域：" + name);
+  renderAdminAreas();
+  renderAreaFilter();
 };
 
 window.deleteArea = async function(area) {
@@ -1139,6 +1140,8 @@ window.deleteArea = async function(area) {
   areaOrder = newOrder;
   await set(dbRef(db, "areaOrder"), newOrder.length > 0 ? newOrder : null);
   showToast("🗑️ 已刪除區域：" + area);
+  renderAdminAreas();
+  renderAreaFilter();
 };
 
 async function saveAreaOrder(container) {
