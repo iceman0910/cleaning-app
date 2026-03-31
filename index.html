@@ -822,6 +822,8 @@ function updateAreaSelect() {
   select.innerHTML = `<option value="">選擇區域</option>` +
     areas.map(a => `<option value="${a}" ${current === a ? 'selected' : ''}>${a}</option>`).join('');
 }
+
+function getOrderedAreas() {
   const allAreas = [...new Set(ITEMS.map(i => i.area))];
   // 以 areaOrder 為主，過濾掉不存在的
   const ordered = areaOrder.filter(a => allAreas.includes(a));
