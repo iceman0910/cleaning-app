@@ -825,11 +825,10 @@ function updateAreaSelect() {
 
 function getOrderedAreas() {
   const allAreas = [...new Set(ITEMS.map(i => i.area))];
-  // 以 areaOrder 為主，過濾掉不存在的
-  const ordered = areaOrder.filter(a => allAreas.includes(a));
-  // 有項目但不在 areaOrder 的區域（例如新增項目時用了新區域名）才自動補上
+  if (areaOrder.length === 0) return allAreas;
+  // areaOrder 裡的區域全部保留（包含空區域）
   const rest = allAreas.filter(a => !areaOrder.includes(a));
-  return [...ordered, ...rest];
+  return [...areaOrder, ...rest];
 }
 
 function renderAreaFilter() {
@@ -1086,9 +1085,10 @@ async function saveItemOrder(container) {
 // ── Admin: Area Order ──
 function renderAdminAreas() {
   const el = document.getElementById("adminAreaList");
-  const areas = getOrderedAreas();
+  // 直接用 areaOrder，空區域也要顯示
+  const areas = areaOrder.length > 0 ? areaOrder : getOrderedAreas();
   el.innerHTML = `
-    ${areas.length === 0 ? '<div style="color:#64748b;font-size:13px;padding:8px 0">尚無區域</div>' :
+    ${areas.length === 0 ? '<div style="color:#64748b;font-size:13px;padding:8px 0">尚無區域，請先新增</div>' :
       areas.map((area, idx) => `
         <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}">
           <span class="drag-handle" title="拖曳排序">⠿</span>
