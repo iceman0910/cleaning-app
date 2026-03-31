@@ -818,9 +818,10 @@ async function deleteViewerPhoto() {
 // ── Area Filter ──
 function getOrderedAreas() {
   const allAreas = [...new Set(ITEMS.map(i => i.area))];
-  if (areaOrder.length === 0) return allAreas;
+  // 以 areaOrder 為主，過濾掉不存在的
   const ordered = areaOrder.filter(a => allAreas.includes(a));
-  const rest = allAreas.filter(a => !ordered.includes(a));
+  // 有項目但不在 areaOrder 的區域（例如新增項目時用了新區域名）才自動補上
+  const rest = allAreas.filter(a => !areaOrder.includes(a));
   return [...ordered, ...rest];
 }
 
@@ -1118,13 +1119,17 @@ window.addArea = async function() {
 window.deleteArea = async function(area) {
   const itemsInArea = ITEMS.filter(i => i.area === area);
   if (itemsInArea.length > 0) {
-    if (!confirm(`「${area}」區域內還有 ${itemsInArea.length} 個清潔項目，刪除區域後這些項目仍會保留但不屬於任何區域。\n確定要刪除嗎？`)) return;
+    if (!confirm(`「${area}」區域內還有 ${itemsInArea.length} 個清潔項目，\n刪除區域的同時會一併刪除這些項目。\n\n確定要刪除嗎？`)) return;
+    // 一併刪除該區域的所有清潔項目
+    for (const item of itemsInArea) {
+      await remove(dbRef(db, "items/" + item.id));
+    }
   } else {
     if (!confirm(`確定要刪除「${area}」區域嗎？`)) return;
   }
-  const newOrder = getOrderedAreas().filter(a => a !== area);
+  const newOrder = areaOrder.filter(a => a !== area);
   areaOrder = newOrder;
-  await set(dbRef(db, "areaOrder"), newOrder);
+  await set(dbRef(db, "areaOrder"), newOrder.length > 0 ? newOrder : null);
   showToast("🗑️ 已刪除區域：" + area);
 };
 
