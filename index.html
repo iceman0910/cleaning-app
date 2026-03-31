@@ -278,6 +278,12 @@ body {
   justify-content: center; gap: 6px; font-family: inherit;
 }
 .admin-tap-zone { position: fixed; bottom: 0; right: 0; width: 60px; height: 60px; z-index: 50; }
+.drag-handle {
+  cursor: grab; color: #475569; font-size: 18px; padding: 0 4px; flex-shrink: 0; user-select: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.admin-card.dragging { opacity: 0.4; border: 2px dashed #3b82f6; }
+.admin-card.drag-over { border-color: #22c55e; background: rgba(34,197,94,0.08); }
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: #1e293b; border: 1px solid #334155; color: #e2e8f0;
@@ -383,6 +389,11 @@ body {
   <div id="adminPanel" style="display:none">
 
     <div class="admin-section">
+      <div class="admin-section-title">🗂️ 區域顯示順序</div>
+      <div id="adminAreaList"></div>
+    </div>
+
+    <div class="admin-section">
       <div class="admin-section-title">✏️ 清潔項目管理</div>
       <div id="adminItemsList"></div>
       <div class="add-item-form">
@@ -463,6 +474,7 @@ const DEFAULT_ITEMS = [
 
 // ── State ──
 let ITEMS = [];
+let areaOrder = []; // 自訂區域排序
 let currentTab = "today";
 let filterArea = "全部";
 let todayRecord = {};
@@ -602,7 +614,14 @@ function listenItems() {
     renderAreaFilter();
     renderItems();
     updateProgress();
-    if (currentTab === "admin") renderAdminItems();
+    if (currentTab === "admin") { renderAdminItems(); renderAdminAreas(); }
+  });
+
+  // 讀取區域排序
+  onValue(dbRef(db, "areaOrder"), snap => {
+    areaOrder = snap.val() || [];
+    renderAreaFilter();
+    if (currentTab === "admin") renderAdminAreas();
   });
 }
 
@@ -798,8 +817,16 @@ async function deleteViewerPhoto() {
 }
 
 // ── Area Filter ──
+function getOrderedAreas() {
+  const allAreas = [...new Set(ITEMS.map(i => i.area))];
+  if (areaOrder.length === 0) return allAreas;
+  const ordered = areaOrder.filter(a => allAreas.includes(a));
+  const rest = allAreas.filter(a => !ordered.includes(a));
+  return [...ordered, ...rest];
+}
+
 function renderAreaFilter() {
-  const areas = ["全部", ...new Set(ITEMS.map(i => i.area))];
+  const areas = ["全部", ...getOrderedAreas()];
   const el = document.getElementById("areaFilter");
   el.innerHTML = areas.map(area => `
     <button class="area-btn ${filterArea === area ? 'active' : ''}" onclick="setArea('${area}')">${area}</button>
@@ -913,7 +940,7 @@ window.switchTab = function(tab) {
   });
   document.getElementById("progressSection").style.display = tab === "today" ? "block" : "none";
   if (tab === "history") renderHistory();
-  if (tab === "admin") { renderAdminItems(); renderAdminUsers(); renderAdminRecords(); }
+  if (tab === "admin") { renderAdminItems(); renderAdminAreas(); renderAdminUsers(); renderAdminRecords(); }
 };
 
 // ── History ──
@@ -991,12 +1018,13 @@ function renderHistoryDetail() {
     </div>`;
 }
 
-// ── Admin: Items ──
+// ── Admin: Items (with drag-to-sort) ──
 function renderAdminItems() {
   const el = document.getElementById("adminItemsList");
   if (ITEMS.length === 0) { el.innerHTML = '<div class="loading">尚無項目</div>'; return; }
-  el.innerHTML = ITEMS.map(item => `
-    <div class="admin-card">
+  el.innerHTML = ITEMS.map((item, idx) => `
+    <div class="admin-card" draggable="true" data-id="${item.id}" data-idx="${idx}">
+      <span class="drag-handle" title="拖曳排序">⠿</span>
       <span style="font-size:20px">${item.icon}</span>
       <div class="admin-card-info">
         <div class="admin-card-name">${item.label} ${item.requirePhoto ? '<span style="font-size:11px;color:#fbbf24">📸需拍照</span>' : ''}</div>
@@ -1005,6 +1033,73 @@ function renderAdminItems() {
       <button class="btn-danger" onclick="deleteItem('${item.id}')">刪除</button>
     </div>
   `).join('');
+  initDragSort(el, saveItemOrder);
+}
+
+function initDragSort(container, onSave) {
+  let dragEl = null;
+  container.querySelectorAll('.admin-card').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      dragEl = card;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      container.querySelectorAll('.admin-card').forEach(c => c.classList.remove('drag-over'));
+      onSave(container);
+    });
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      if (card === dragEl) return;
+      container.querySelectorAll('.admin-card').forEach(c => c.classList.remove('drag-over'));
+      card.classList.add('drag-over');
+      const rect = card.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (e.clientY < mid) container.insertBefore(dragEl, card);
+      else container.insertBefore(dragEl, card.nextSibling);
+    });
+  });
+}
+
+async function saveItemOrder(container) {
+  const cards = container.querySelectorAll('.admin-card');
+  const updates = {};
+  cards.forEach((card, idx) => {
+    const id = card.dataset.id;
+    const item = ITEMS.find(i => i.id === id);
+    if (item) updates[id] = { ...item, order: idx };
+  });
+  for (const [id, item] of Object.entries(updates)) {
+    await set(dbRef(db, "items/" + id), item);
+  }
+  showToast("✅ 順序已儲存");
+}
+
+// ── Admin: Area Order ──
+function renderAdminAreas() {
+  const el = document.getElementById("adminAreaList");
+  const areas = getOrderedAreas();
+  if (areas.length === 0) { el.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px">尚無區域</div>'; return; }
+  el.innerHTML = areas.map((area, idx) => `
+    <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}">
+      <span class="drag-handle" title="拖曳排序">⠿</span>
+      <div class="admin-card-info">
+        <div class="admin-card-name">${area}</div>
+        <div class="admin-card-sub">${ITEMS.filter(i => i.area === area).length} 個項目</div>
+      </div>
+    </div>
+  `).join('');
+  initDragSort(el, saveAreaOrder);
+}
+
+async function saveAreaOrder(container) {
+  const cards = container.querySelectorAll('.admin-card');
+  const newOrder = Array.from(cards).map(c => c.dataset.area);
+  areaOrder = newOrder;
+  await set(dbRef(db, "areaOrder"), newOrder);
+  renderAreaFilter();
+  showToast("✅ 區域順序已儲存");
 }
 
 window.addItem = async function() {
