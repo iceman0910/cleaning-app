@@ -1170,11 +1170,7 @@ function renderAdminItems() {
         <div style="margin-top:8px">
           <div style="font-size:12px;color:#94a3b8;margin-bottom:6px">📅 執行日（不選代表每天）：</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            ${DAY_NAMES.map((d,i) => `
-              <button class="day-btn edit-day-btn ${(item.scheduleDays||[]).includes(i)?'active':''}"
-                data-item="${item.id}" data-day="${i}"
-                onclick="toggleEditDay('${item.id}',${i},this)">週` + d + `</button>
-            `).join('')}
+            ${DAY_NAMES.map((d,i) => '<button class="day-btn edit-day-btn ' + ((item.scheduleDays||[]).includes(i)?'active':'') + '" data-item="' + item.id + '" data-day="' + i + '" onclick="toggleEditDay(\'' + item.id + '\',' + i + ',this)">週' + d + '</button>').join('')}
           </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #334155">
