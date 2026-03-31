@@ -331,6 +331,24 @@ body {
 <!-- Hidden file input -->
 <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none">
 
+<!-- Temp Task Modal -->
+<div class="overlay" id="tempTaskModal" style="display:none">
+  <div class="modal">
+    <div class="modal-icon">⚡</div>
+    <div class="modal-title">新增今日臨時任務</div>
+    <div class="modal-sub">任務只存在今天，明天自動消失</div>
+    <input id="tempTaskInput" placeholder="任務名稱，例如：清理儲藏室" />
+    <div class="toggle-row" style="margin-bottom:12px">
+      <div>
+        <div class="toggle-label">📸 需要拍照才算完成</div>
+      </div>
+      <button class="toggle-switch" id="tempTaskPhotoToggle" onclick="this.classList.toggle('on')"></button>
+    </div>
+    <button class="btn-primary" onclick="addTempTask()">新增任務</button>
+    <button class="btn-secondary" onclick="document.getElementById('tempTaskModal').style.display='none'">取消</button>
+  </div>
+</div>
+
 <!-- Name Modal -->
 <div class="overlay" id="nameModal">
   <div class="modal">
@@ -406,6 +424,16 @@ body {
     <div class="date-label" id="dateLabel"></div>
     <div class="area-filter" id="areaFilter"></div>
     <div id="itemsList" class="items-list"><div class="loading">載入中...</div></div>
+
+    <!-- 臨時任務區 -->
+    <div style="margin-top:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:#f59e0b;letter-spacing:1px">⚡ 今日臨時任務</div>
+        <button onclick="openTempTaskModal()" style="padding:6px 14px;border-radius:20px;border:1px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.1);color:#fbbf24;font-size:12px;cursor:pointer;font-family:inherit">＋ 新增</button>
+      </div>
+      <div id="tempTaskList"></div>
+    </div>
+
     <button class="refresh-btn" onclick="loadAll()">🔄 手動刷新同步</button>
   </div>
 
@@ -453,9 +481,13 @@ body {
         <div id="newScheduleDays" style="display:none;padding:10px 0;gap:8px;flex-wrap:wrap;display:none">
           <div style="font-size:12px;color:#94a3b8;margin-bottom:6px">選擇執行日（可多選）：</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
-            ${['日','一','二','三','四','五','六'].map((d,i) => `
-              <button class="day-btn" data-day="${i}" onclick="toggleDay(${i})">${d}</button>
-            `).join('')}
+            <button class="day-btn" data-day="0" onclick="toggleDay(0)">日</button>
+            <button class="day-btn" data-day="1" onclick="toggleDay(1)">一</button>
+            <button class="day-btn" data-day="2" onclick="toggleDay(2)">二</button>
+            <button class="day-btn" data-day="3" onclick="toggleDay(3)">三</button>
+            <button class="day-btn" data-day="4" onclick="toggleDay(4)">四</button>
+            <button class="day-btn" data-day="5" onclick="toggleDay(5)">五</button>
+            <button class="day-btn" data-day="6" onclick="toggleDay(6)">六</button>
           </div>
         </div>
         <button class="btn-primary" onclick="addItem()" style="margin-top:12px">➕ 新增</button>
@@ -524,6 +556,7 @@ let todayRecord = {};
 let allRecords = {};
 let allUsers = {};
 let selectedHistory = null;
+let tempTasks = {}; // 今日臨時任務
 let isAdmin = false;
 let newRequirePhoto = false;
 let newScheduleDays = []; // 新增項目時的排程星期幾選擇
@@ -708,7 +741,12 @@ function listenUsers() {
   });
 }
 
-window.loadAll = function() {
+function listenTempTasks() {
+  onValue(dbRef(db, "tempTasks/" + TODAY), snap => {
+    tempTasks = snap.val() || {};
+    renderTempTasks();
+  });
+}
   document.getElementById("syncInfo").textContent = "🔄 刷新中...";
   get(dbRef(db, "records/" + TODAY)).then(snap => {
     todayRecord = snap.val() || {};
@@ -741,39 +779,43 @@ photoInput.addEventListener("change", async () => {
   setItemUploading(itemId, true);
 
   try {
-    // 壓縮圖片並轉成 base64
     const compressed = await compressImage(file, 1200, 0.75);
     const base64 = await blobToBase64(compressed);
-
-    // 上傳到 Cloudinary
     const formData = new FormData();
     formData.append("file", `data:image/jpeg;base64,${base64}`);
     formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
     const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-      method: "POST",
-      body: formData
+      method: "POST", body: formData
     });
     const json = await res.json();
-    if (!json.secure_url) throw new Error("Cloudinary 上傳失敗：" + JSON.stringify(json));
+    if (!json.secure_url) throw new Error("Cloudinary 上傳失敗");
     const url = json.secure_url;
     const publicId = json.public_id;
 
-    // 存進 Firebase
-    const existingPhotos = todayRecord[itemId]?.photos || [];
-    const newPhoto = { url, publicId, by: name, uid: UID, time: timeNow() };
-    const updatedRecord = {
-      ...todayRecord,
-      [itemId]: {
-        by: name, uid: UID, time: timeNow(),
-        photos: [...existingPhotos, newPhoto]
+    // 判斷是臨時任務還是一般項目
+    if (itemId.startsWith("temp_")) {
+      const taskId = itemId.replace("temp_", "");
+      const task = tempTasks[taskId];
+      if (task) {
+        await set(dbRef(db, "tempTasks/" + TODAY + "/" + taskId), {
+          ...task, done: true, doneBy: name, doneAt: timeNow(), photoUrl: url, photoPublicId: publicId
+        });
       }
-    };
-    todayRecord = updatedRecord;
-    allRecords[TODAY] = updatedRecord;
-    await set(dbRef(db, "records/" + TODAY), updatedRecord);
-    renderItems(); updateProgress();
-    showToast("✅ 照片上傳完成，項目已完成！");
+      showToast("✅ 照片上傳完成，任務已完成！");
+    } else {
+      // 一般清潔項目
+      const existingPhotos = todayRecord[itemId]?.photos || [];
+      const newPhoto = { url, publicId, by: name, uid: UID, time: timeNow() };
+      const updatedRecord = {
+        ...todayRecord,
+        [itemId]: { by: name, uid: UID, time: timeNow(), photos: [...existingPhotos, newPhoto] }
+      };
+      todayRecord = updatedRecord;
+      allRecords[TODAY] = updatedRecord;
+      await set(dbRef(db, "records/" + TODAY), updatedRecord);
+      renderItems(); updateProgress();
+      showToast("✅ 照片上傳完成，項目已完成！");
+    }
   } catch(e) {
     console.error(e);
     showToast("❌ 上傳失敗，請再試一次");
@@ -1131,7 +1173,7 @@ function renderAdminItems() {
             ${DAY_NAMES.map((d,i) => `
               <button class="day-btn edit-day-btn ${(item.scheduleDays||[]).includes(i)?'active':''}"
                 data-item="${item.id}" data-day="${i}"
-                onclick="toggleEditDay('${item.id}',${i},this)">週${d}</button>
+                onclick="toggleEditDay('${item.id}',${i},this)">週` + d + `</button>
             `).join('')}
           </div>
         </div>
@@ -1408,10 +1450,93 @@ window.deleteRecord = async function(date) {
   showToast("🗑️ 已刪除 " + date + " 的紀錄");
 };
 
+// ── Temp Tasks ──
+window.openTempTaskModal = function() {
+  const name = getUserName();
+  if (!name) { window.showNameModal(); return; }
+  document.getElementById("tempTaskInput").value = "";
+  document.getElementById("tempTaskPhotoToggle").className = "toggle-switch";
+  document.getElementById("tempTaskModal").style.display = "flex";
+  setTimeout(() => document.getElementById("tempTaskInput").focus(), 100);
+};
+
+window.addTempTask = async function() {
+  const label = document.getElementById("tempTaskInput").value.trim();
+  if (!label) { showToast("⚠️ 請填寫任務名稱"); return; }
+  const requirePhoto = document.getElementById("tempTaskPhotoToggle").classList.contains("on");
+  const name = getUserName();
+  const id = "tmp_" + Date.now();
+  const task = { id, label, requirePhoto, by: name, uid: UID, createdAt: timeNow(), done: false };
+  await set(dbRef(db, "tempTasks/" + TODAY + "/" + id), task);
+  document.getElementById("tempTaskModal").style.display = "none";
+  showToast("✅ 已新增臨時任務：" + label);
+};
+
+window.toggleTempTask = async function(taskId) {
+  const task = tempTasks[taskId];
+  if (!task) return;
+  const name = getUserName();
+  if (!name) { window.showNameModal(); return; }
+  if (task.requirePhoto && !task.done) {
+    // 需拍照 → 觸發相機
+    pendingPhotoItemId = "temp_" + taskId;
+    photoInput.value = "";
+    photoInput.click();
+    return;
+  }
+  if (task.done) {
+    if (!confirm(`確定要取消「${task.label}」的完成狀態嗎？`)) return;
+    await set(dbRef(db, "tempTasks/" + TODAY + "/" + taskId), { ...task, done: false, doneBy: null, doneAt: null });
+  } else {
+    await set(dbRef(db, "tempTasks/" + TODAY + "/" + taskId), { ...task, done: true, doneBy: name, doneAt: timeNow() });
+  }
+};
+
+window.deleteTempTask = async function(taskId) {
+  if (!confirm("確定要刪除這個臨時任務嗎？")) return;
+  await remove(dbRef(db, "tempTasks/" + TODAY + "/" + taskId));
+  showToast("🗑️ 已刪除臨時任務");
+};
+
+function renderTempTasks() {
+  const el = document.getElementById("tempTaskList");
+  if (!el) return;
+  const tasks = Object.values(tempTasks).sort((a,b) => a.createdAt > b.createdAt ? 1 : -1);
+  if (tasks.length === 0) {
+    el.innerHTML = `<div style="font-size:13px;color:#64748b;padding:12px 0;text-align:center">今日尚無臨時任務</div>`;
+    return;
+  }
+  el.innerHTML = tasks.map(task => {
+    const canDelete = isAdmin || task.uid === UID;
+    return `
+      <div class="item-card ${task.done ? 'checked' : 'needs-photo'}" style="margin-bottom:10px">
+        <button class="item-main" onclick="toggleTempTask('${task.id}')">
+          <div class="check-box ${task.done ? 'checked' : ''}">${task.done ? '✓' : (task.requirePhoto ? '📷' : '○')}</div>
+          <div class="item-icon">⚡</div>
+          <div class="item-info">
+            <div class="item-name ${task.done ? 'checked' : ''}">${task.label}</div>
+            <div class="item-sub">
+              ${task.done
+                ? `✅ ${task.doneBy} 完成於 ${task.doneAt}`
+                : `由 ${task.by} 新增於 ${task.createdAt}${task.requirePhoto ? ' · 📸需拍照' : ''}`}
+            </div>
+          </div>
+          ${isAdmin || task.uid === UID ? `<button class="btn-danger" style="flex-shrink:0" onclick="event.stopPropagation();deleteTempTask('${task.id}')">刪除</button>` : ''}
+        </button>
+        ${task.done && task.photoUrl ? `
+          <div class="photo-strip">
+            <img class="photo-thumb" src="${task.photoUrl}"
+              onclick="openPhotoViewer('${task.photoUrl}','${task.doneBy} · ${task.doneAt}','temp_${task.id}',true)">
+          </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
 // ── Init ──
 listenItems();
 listenRecords();
 listenUsers();
+listenTempTasks();
 updateProgress();
 </script>
 </body>
