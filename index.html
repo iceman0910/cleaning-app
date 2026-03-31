@@ -1530,7 +1530,14 @@ function renderTempTasks() {
   }).join('');
 }
 
-// ── Init ──
+// ── Auto detect date change ──
+setInterval(() => {
+  const newDate = new Date().toISOString().split("T")[0];
+  if (newDate !== TODAY) {
+    showToast("📅 日期已更新，自動重新整理...");
+    setTimeout(() => location.reload(), 1500);
+  }
+}, 60000); // 每分鐘檢查一次
 listenItems();
 listenRecords();
 listenUsers();
