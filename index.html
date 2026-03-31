@@ -1135,6 +1135,12 @@ function renderAdminItems() {
             `).join('')}
           </div>
         </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #334155">
+          <div>
+            <div style="font-size:13px;color:#e2e8f0">📸 需要拍照才算完成</div>
+          </div>
+          <button class="toggle-switch ${item.requirePhoto ? 'on' : ''}" id="editRequirePhoto_${item.id}" onclick="toggleEditRequirePhoto('${item.id}')"></button>
+        </div>
         <div style="display:flex;gap:6px;margin-top:8px">
           <button class="btn-save" onclick="saveItemEdit('${item.id}')">✓ 儲存</button>
           <button class="btn-cancel-edit" onclick="toggleItemEdit('${item.id}')">取消</button>
@@ -1150,6 +1156,11 @@ window.toggleItemEdit = function(itemId) {
   el.style.display = el.style.display === "none" ? "block" : "none";
 };
 
+window.toggleEditRequirePhoto = function(itemId) {
+  const btn = document.getElementById("editRequirePhoto_" + itemId);
+  btn.classList.toggle("on");
+};
+
 window.toggleEditDay = function(itemId, day, btn) {
   btn.classList.toggle('active');
 };
@@ -1163,9 +1174,10 @@ window.saveItemEdit = async function(itemId) {
   const activeDays = [...document.querySelectorAll(`.edit-day-btn[data-item="${itemId}"].active`)]
     .map(b => parseInt(b.dataset.day)).sort();
   const scheduleDays = activeDays.length > 0 ? activeDays : null;
+  const requirePhoto = document.getElementById("editRequirePhoto_" + itemId)?.classList.contains("on") || false;
   const item = ITEMS.find(i => i.id === itemId);
   if (!item) return;
-  await set(dbRef(db, "items/" + itemId), { ...item, icon, label, area, scheduleDays });
+  await set(dbRef(db, "items/" + itemId), { ...item, icon, label, area, scheduleDays, requirePhoto });
   showToast("✅ 已更新：" + label);
 };
 
