@@ -422,15 +422,15 @@ body {
   <!-- Today Panel -->
   <div id="todayPanel">
     <div class="date-label" id="dateLabel"></div>
-    <div class="area-filter" id="areaFilter"></div>
-    <div id="itemsList" class="items-list"><div class="loading">載入中...</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div class="area-filter" id="areaFilter" style="margin-bottom:0;flex:1"></div>
+      <button onclick="openTempTaskModal()" style="flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.1);color:#fbbf24;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap">⚡ 新增任務</button>
+    </div>
+    <div id="itemsList" class="items-list" style="margin-top:8px"><div class="loading">載入中...</div></div>
 
     <!-- 臨時任務區 -->
     <div style="margin-top:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:13px;font-weight:700;color:#f59e0b;letter-spacing:1px">⚡ 今日臨時任務</div>
-        <button onclick="openTempTaskModal()" style="padding:6px 14px;border-radius:20px;border:1px solid rgba(251,191,36,0.4);background:rgba(251,191,36,0.1);color:#fbbf24;font-size:12px;cursor:pointer;font-family:inherit">＋ 新增</button>
-      </div>
+      <div style="font-size:13px;font-weight:700;color:#f59e0b;letter-spacing:1px;margin-bottom:10px">⚡ 今日臨時任務</div>
       <div id="tempTaskList"></div>
     </div>
 
