@@ -338,7 +338,7 @@ body {
   <div class="header-row">
     <div>
       <div class="header-title">🧽 清潔日誌</div>
-      <div class="header-sub">多人協作 · 即時同步</div>
+      <div class="header-sub">多人協作 · 即時同步 · v1.0</div>
     </div>
     <div>
       <div class="sync-info" id="syncInfo">連線中...</div>
@@ -404,10 +404,8 @@ body {
         </div>
         <select id="newArea">
           <option value="">選擇區域</option>
-          <option>全區</option><option>廁所</option><option>辦公區</option>
-          <option>廚房</option><option>入口</option>
         </select>
-        <input id="newCustomArea" placeholder="或輸入自訂區域名稱（選填）" />
+        <input id="newCustomArea" placeholder="或輸入全新區域名稱（選填）" />
         <div class="toggle-row">
           <div>
             <div class="toggle-label">📸 需要拍照才算完成</div>
@@ -816,7 +814,14 @@ async function deleteViewerPhoto() {
 }
 
 // ── Area Filter ──
-function getOrderedAreas() {
+function updateAreaSelect() {
+  const select = document.getElementById("newArea");
+  if (!select) return;
+  const current = select.value;
+  const areas = getOrderedAreas();
+  select.innerHTML = `<option value="">選擇區域</option>` +
+    areas.map(a => `<option value="${a}" ${current === a ? 'selected' : ''}>${a}</option>`).join('');
+}
   const allAreas = [...new Set(ITEMS.map(i => i.area))];
   // 以 areaOrder 為主，過濾掉不存在的
   const ordered = areaOrder.filter(a => allAreas.includes(a));
@@ -1102,6 +1107,7 @@ function renderAdminAreas() {
     </div>
   `;
   initDragSort(el, saveAreaOrder);
+  updateAreaSelect();
 }
 
 window.addArea = async function() {
