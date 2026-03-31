@@ -230,6 +230,30 @@ body {
 .admin-card-info { flex: 1; min-width: 0; }
 .admin-card-name { font-size: 14px; font-weight: 600; color: #e2e8f0; }
 .admin-card-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+.inline-edit-form {
+  display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap;
+}
+.inline-edit-form input {
+  flex: 1; min-width: 80px; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid #3b82f6; background: #0f172a;
+  color: #f1f5f9; font-size: 13px; outline: none; font-family: inherit;
+}
+.inline-edit-form input[size="3"] { flex: 0 0 46px; }
+.btn-edit {
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3);
+  color: #a5b4fc; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.btn-save {
+  padding: 6px 12px; border-radius: 8px;
+  background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3);
+  color: #86efac; font-size: 12px; cursor: pointer; font-family: inherit;
+}
+.btn-cancel-edit {
+  padding: 6px 10px; border-radius: 8px;
+  background: transparent; border: 1px solid #334155;
+  color: #64748b; font-size: 12px; cursor: pointer; font-family: inherit;
+}
 .add-item-form {
   background: #1e293b; border: 1px solid #334155;
   border-radius: 12px; padding: 16px; margin-bottom: 8px;
@@ -1024,23 +1048,55 @@ function renderHistoryDetail() {
     </div>`;
 }
 
-// ── Admin: Items (with drag-to-sort) ──
+// ── Admin: Items (with drag-to-sort + edit) ──
 function renderAdminItems() {
   const el = document.getElementById("adminItemsList");
   if (ITEMS.length === 0) { el.innerHTML = '<div class="loading">尚無項目</div>'; return; }
   el.innerHTML = ITEMS.map((item, idx) => `
-    <div class="admin-card" draggable="true" data-id="${item.id}" data-idx="${idx}">
-      <span class="drag-handle" title="拖曳排序">⠿</span>
-      <span style="font-size:20px">${item.icon}</span>
-      <div class="admin-card-info">
-        <div class="admin-card-name">${item.label} ${item.requirePhoto ? '<span style="font-size:11px;color:#fbbf24">📸需拍照</span>' : ''}</div>
-        <div class="admin-card-sub">📍 ${item.area}</div>
+    <div class="admin-card" draggable="true" data-id="${item.id}" data-idx="${idx}" style="flex-direction:column;align-items:stretch">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="drag-handle" title="拖曳排序">⠿</span>
+        <span style="font-size:20px">${item.icon}</span>
+        <div class="admin-card-info">
+          <div class="admin-card-name">${item.label} ${item.requirePhoto ? '<span style="font-size:11px;color:#fbbf24">📸需拍照</span>' : ''}</div>
+          <div class="admin-card-sub">📍 ${item.area}</div>
+        </div>
+        <button class="btn-edit" onclick="toggleItemEdit('${item.id}')">編輯</button>
+        <button class="btn-danger" onclick="deleteItem('${item.id}')">刪除</button>
       </div>
-      <button class="btn-danger" onclick="deleteItem('${item.id}')">刪除</button>
+      <div id="itemEdit_${item.id}" style="display:none">
+        <div class="inline-edit-form">
+          <input size="3" id="editIcon_${item.id}" value="${item.icon}" placeholder="圖示" />
+          <input id="editLabel_${item.id}" value="${item.label}" placeholder="項目名稱" style="flex:2" />
+          <select id="editArea_${item.id}" style="flex:1;min-width:80px;padding:6px 10px;border-radius:8px;border:1px solid #3b82f6;background:#0f172a;color:#f1f5f9;font-size:13px;font-family:inherit;outline:none">
+            ${getOrderedAreas().map(a => `<option value="${a}" ${a === item.area ? 'selected' : ''}>${a}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button class="btn-save" onclick="saveItemEdit('${item.id}')">✓ 儲存</button>
+          <button class="btn-cancel-edit" onclick="toggleItemEdit('${item.id}')">取消</button>
+        </div>
+      </div>
     </div>
   `).join('');
   initDragSort(el, saveItemOrder);
 }
+
+window.toggleItemEdit = function(itemId) {
+  const el = document.getElementById("itemEdit_" + itemId);
+  el.style.display = el.style.display === "none" ? "block" : "none";
+};
+
+window.saveItemEdit = async function(itemId) {
+  const icon = document.getElementById("editIcon_" + itemId).value.trim() || "🔹";
+  const label = document.getElementById("editLabel_" + itemId).value.trim();
+  const area = document.getElementById("editArea_" + itemId).value;
+  if (!label) { showToast("⚠️ 請填寫項目名稱"); return; }
+  const item = ITEMS.find(i => i.id === itemId);
+  if (!item) return;
+  await set(dbRef(db, "items/" + itemId), { ...item, icon, label, area });
+  showToast("✅ 已更新：" + label);
+};
 
 function initDragSort(container, onSave) {
   let dragEl = null;
@@ -1085,18 +1141,29 @@ async function saveItemOrder(container) {
 // ── Admin: Area Order ──
 function renderAdminAreas() {
   const el = document.getElementById("adminAreaList");
-  // 直接用 areaOrder，空區域也要顯示
   const areas = areaOrder.length > 0 ? areaOrder : getOrderedAreas();
   el.innerHTML = `
     ${areas.length === 0 ? '<div style="color:#64748b;font-size:13px;padding:8px 0">尚無區域，請先新增</div>' :
       areas.map((area, idx) => `
-        <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}">
-          <span class="drag-handle" title="拖曳排序">⠿</span>
-          <div class="admin-card-info">
-            <div class="admin-card-name">${area}</div>
-            <div class="admin-card-sub">${ITEMS.filter(i => i.area === area).length} 個清潔項目</div>
+        <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}" style="flex-direction:column;align-items:stretch">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="drag-handle" title="拖曳排序">⠿</span>
+            <div class="admin-card-info">
+              <div class="admin-card-name">${area}</div>
+              <div class="admin-card-sub">${ITEMS.filter(i => i.area === area).length} 個清潔項目</div>
+            </div>
+            <button class="btn-edit" onclick="toggleAreaEdit(${idx})">編輯</button>
+            <button class="btn-danger" onclick="deleteArea('${area}')">刪除</button>
           </div>
-          <button class="btn-danger" onclick="deleteArea('${area}')">刪除</button>
+          <div id="areaEdit_${idx}" data-orig="${area}" style="display:none">
+            <div class="inline-edit-form">
+              <input id="editAreaName_${idx}" value="${area}" placeholder="區域名稱" />
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <button class="btn-save" onclick="saveAreaEdit(${idx})">✓ 儲存</button>
+              <button class="btn-cancel-edit" onclick="toggleAreaEdit(${idx})">取消</button>
+            </div>
+          </div>
         </div>
       `).join('')
     }
@@ -1111,6 +1178,30 @@ function renderAdminAreas() {
   initDragSort(el, saveAreaOrder);
   updateAreaSelect();
 }
+
+window.toggleAreaEdit = function(idx) {
+  const el = document.getElementById("areaEdit_" + idx);
+  if (el) el.style.display = el.style.display === "none" ? "block" : "none";
+};
+
+window.saveAreaEdit = async function(idx) {
+  const editEl = document.getElementById("areaEdit_" + idx);
+  const oldName = editEl.dataset.orig;
+  const newName = document.getElementById("editAreaName_" + idx).value.trim();
+  if (!newName) { showToast("⚠️ 請填寫區域名稱"); return; }
+  if (newName === oldName) { toggleAreaEdit(idx); return; }
+  if (areaOrder.includes(newName)) { showToast("⚠️ 此區域名稱已存在"); return; }
+  // 更新 areaOrder
+  const newOrder = areaOrder.map(a => a === oldName ? newName : a);
+  areaOrder = newOrder;
+  await set(dbRef(db, "areaOrder"), newOrder);
+  // 更新所有屬於該區域的 items
+  const itemsToUpdate = ITEMS.filter(i => i.area === oldName);
+  for (const item of itemsToUpdate) {
+    await set(dbRef(db, "items/" + item.id), { ...item, area: newName });
+  }
+  showToast("✅ 已更新區域：" + newName);
+};
 
 window.addArea = async function() {
   const name = document.getElementById("newAreaName").value.trim();
