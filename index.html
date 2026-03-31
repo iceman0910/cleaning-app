@@ -747,6 +747,8 @@ function listenTempTasks() {
     renderTempTasks();
   });
 }
+
+window.loadAll = function() {
   document.getElementById("syncInfo").textContent = "🔄 刷新中...";
   get(dbRef(db, "records/" + TODAY)).then(snap => {
     todayRecord = snap.val() || {};
