@@ -750,22 +750,21 @@ function blobToBase64(blob) {
   });
 }
 
-// ── Uncheck item (only if no photo required, or admin) ──
+// ── Uncheck item ──
 window.uncheckItem = async function(itemId) {
   const item = ITEMS.find(i => i.id === itemId);
   if (!item) return;
   const rec = todayRecord[itemId];
   if (!rec) return;
-  if (item.requirePhoto && !isAdmin) {
-    showToast("⚠️ 需要拍照才能完成此項目");
-    return;
-  }
+  const confirmed = confirm(`確定要取消「${item.label}」的完成狀態嗎？`);
+  if (!confirmed) return;
   const newRecord = { ...todayRecord };
   delete newRecord[itemId];
   todayRecord = newRecord;
   allRecords[TODAY] = newRecord;
   renderItems(); updateProgress();
   await set(dbRef(db, "records/" + TODAY), newRecord);
+  showToast("↩️ 已取消勾選");
 };
 
 // ── Photo Viewer ──
