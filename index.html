@@ -254,6 +254,12 @@ body {
   background: transparent; border: 1px solid #334155;
   color: #64748b; font-size: 12px; cursor: pointer; font-family: inherit;
 }
+.day-btn {
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid #334155;
+  background: #0f172a; color: #94a3b8; font-size: 13px; cursor: pointer;
+  font-family: inherit; transition: all 0.2s; flex-shrink: 0;
+}
+.day-btn.active { background: #3b82f6; border-color: #3b82f6; color: white; font-weight: 700; }
 .add-item-form {
   background: #1e293b; border: 1px solid #334155;
   border-radius: 12px; padding: 16px; margin-bottom: 8px;
@@ -437,6 +443,21 @@ body {
           </div>
           <button class="toggle-switch" id="newRequirePhoto" onclick="toggleNewRequirePhoto()"></button>
         </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">📅 設定排程（非每天執行）</div>
+            <div class="toggle-sub">只在指定星期幾顯示此項目</div>
+          </div>
+          <button class="toggle-switch" id="newScheduleToggle" onclick="toggleNewSchedule()"></button>
+        </div>
+        <div id="newScheduleDays" style="display:none;padding:10px 0;gap:8px;flex-wrap:wrap;display:none">
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:6px">選擇執行日（可多選）：</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${['日','一','二','三','四','五','六'].map((d,i) => `
+              <button class="day-btn" data-day="${i}" onclick="toggleDay(${i})">${d}</button>
+            `).join('')}
+          </div>
+        </div>
         <button class="btn-primary" onclick="addItem()" style="margin-top:12px">➕ 新增</button>
       </div>
     </div>
@@ -505,6 +526,7 @@ let allUsers = {};
 let selectedHistory = null;
 let isAdmin = false;
 let newRequirePhoto = false;
+let newScheduleDays = []; // 新增項目時的排程星期幾選擇
 let pendingPhotoItemId = null;
 let viewerPhotoUrl = null;
 let viewerPhotoPath = null;
@@ -616,6 +638,26 @@ window.toggleNewRequirePhoto = function() {
   newRequirePhoto = !newRequirePhoto;
   const btn = document.getElementById("newRequirePhoto");
   btn.className = "toggle-switch" + (newRequirePhoto ? " on" : "");
+};
+
+window.toggleNewSchedule = function() {
+  const btn = document.getElementById("newScheduleToggle");
+  const panel = document.getElementById("newScheduleDays");
+  const isOn = btn.classList.contains("on");
+  btn.className = "toggle-switch" + (!isOn ? " on" : "");
+  panel.style.display = !isOn ? "block" : "none";
+  if (isOn) { newScheduleDays = []; document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active')); }
+};
+
+window.toggleDay = function(day) {
+  const btn = document.querySelector(`.day-btn[data-day="${day}"]`);
+  if (newScheduleDays.includes(day)) {
+    newScheduleDays = newScheduleDays.filter(d => d !== day);
+    btn.classList.remove('active');
+  } else {
+    newScheduleDays.push(day);
+    btn.classList.add('active');
+  }
 };
 
 // ── Date label ──
@@ -864,11 +906,21 @@ function renderAreaFilter() {
 }
 window.setArea = function(area) { filterArea = area; renderAreaFilter(); renderItems(); };
 
+// ── Schedule helper ──
+function isScheduledToday(item) {
+  if (!item.scheduleDays || item.scheduleDays.length === 0) return true; // 每天
+  const todayDow = new Date().getDay(); // 0=日,1=一,...,6=六
+  return item.scheduleDays.includes(todayDow);
+}
+
+const DAY_NAMES = ['日','一','二','三','四','五','六'];
+
 // ── Render Items ──
 function renderItems() {
   const list = document.getElementById("itemsList");
   if (ITEMS.length === 0) { list.innerHTML = '<div class="loading">載入中...</div>'; return; }
-  const filtered = filterArea === "全部" ? ITEMS : ITEMS.filter(i => i.area === filterArea);
+  const filtered = (filterArea === "全部" ? ITEMS : ITEMS.filter(i => i.area === filterArea))
+    .filter(item => isScheduledToday(item));
 
   list.innerHTML = filtered.map(item => {
     const rec = todayRecord[item.id];
@@ -950,8 +1002,9 @@ async function doCheck(itemId) {
 
 // ── Progress ──
 function updateProgress() {
-  const total = ITEMS.length;
-  const cnt = Object.keys(todayRecord).length;
+  const scheduledItems = ITEMS.filter(i => isScheduledToday(i));
+  const total = scheduledItems.length;
+  const cnt = scheduledItems.filter(i => !!todayRecord[i.id]).length;
   const pct = total > 0 ? Math.round(cnt / total * 100) : 0;
   document.getElementById("progressCount").textContent = `${cnt} / ${total}`;
   const bar = document.getElementById("progressBar");
@@ -1059,7 +1112,7 @@ function renderAdminItems() {
         <span style="font-size:20px">${item.icon}</span>
         <div class="admin-card-info">
           <div class="admin-card-name">${item.label} ${item.requirePhoto ? '<span style="font-size:11px;color:#fbbf24">📸需拍照</span>' : ''}</div>
-          <div class="admin-card-sub">📍 ${item.area}</div>
+          <div class="admin-card-sub">📍 ${item.area}${item.scheduleDays?.length > 0 ? ` · 📅 每週${item.scheduleDays.map(d=>DAY_NAMES[d]).join('、')}` : ' · 每天'}</div>
         </div>
         <button class="btn-edit" onclick="toggleItemEdit('${item.id}')">編輯</button>
         <button class="btn-danger" onclick="deleteItem('${item.id}')">刪除</button>
@@ -1072,7 +1125,17 @@ function renderAdminItems() {
             ${getOrderedAreas().map(a => `<option value="${a}" ${a === item.area ? 'selected' : ''}>${a}</option>`).join('')}
           </select>
         </div>
-        <div style="display:flex;gap:6px;margin-top:6px">
+        <div style="margin-top:8px">
+          <div style="font-size:12px;color:#94a3b8;margin-bottom:6px">📅 執行日（不選代表每天）：</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${DAY_NAMES.map((d,i) => `
+              <button class="day-btn edit-day-btn ${(item.scheduleDays||[]).includes(i)?'active':''}"
+                data-item="${item.id}" data-day="${i}"
+                onclick="toggleEditDay('${item.id}',${i},this)">週${d}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
           <button class="btn-save" onclick="saveItemEdit('${item.id}')">✓ 儲存</button>
           <button class="btn-cancel-edit" onclick="toggleItemEdit('${item.id}')">取消</button>
         </div>
@@ -1087,14 +1150,22 @@ window.toggleItemEdit = function(itemId) {
   el.style.display = el.style.display === "none" ? "block" : "none";
 };
 
+window.toggleEditDay = function(itemId, day, btn) {
+  btn.classList.toggle('active');
+};
+
 window.saveItemEdit = async function(itemId) {
   const icon = document.getElementById("editIcon_" + itemId).value.trim() || "🔹";
   const label = document.getElementById("editLabel_" + itemId).value.trim();
   const area = document.getElementById("editArea_" + itemId).value;
   if (!label) { showToast("⚠️ 請填寫項目名稱"); return; }
+  // 讀取選中的星期
+  const activeDays = [...document.querySelectorAll(`.edit-day-btn[data-item="${itemId}"].active`)]
+    .map(b => parseInt(b.dataset.day)).sort();
+  const scheduleDays = activeDays.length > 0 ? activeDays : null;
   const item = ITEMS.find(i => i.id === itemId);
   if (!item) return;
-  await set(dbRef(db, "items/" + itemId), { ...item, icon, label, area });
+  await set(dbRef(db, "items/" + itemId), { ...item, icon, label, area, scheduleDays });
   showToast("✅ 已更新：" + label);
 };
 
@@ -1253,13 +1324,19 @@ window.addItem = async function() {
   if (!label || !area) { showToast("⚠️ 請填寫項目名稱和區域"); return; }
   const id = "item_" + Date.now();
   const order = ITEMS.length;
-  await set(dbRef(db, "items/" + id), { id, icon, label, area, requirePhoto: newRequirePhoto, order });
+  const scheduleDays = newScheduleDays.length > 0 ? [...newScheduleDays].sort() : null;
+  await set(dbRef(db, "items/" + id), { id, icon, label, area, requirePhoto: newRequirePhoto, order, scheduleDays });
+  // Reset form
   document.getElementById("newIcon").value = "";
   document.getElementById("newLabel").value = "";
   document.getElementById("newArea").value = "";
   document.getElementById("newCustomArea").value = "";
   newRequirePhoto = false;
   document.getElementById("newRequirePhoto").className = "toggle-switch";
+  newScheduleDays = [];
+  document.getElementById("newScheduleToggle").className = "toggle-switch";
+  document.getElementById("newScheduleDays").style.display = "none";
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('active'));
   showToast("✅ 已新增：" + label);
 };
 
