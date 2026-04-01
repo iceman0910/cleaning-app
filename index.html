@@ -366,6 +366,10 @@ body {
     <div class="modal-icon">🔐</div>
     <div class="modal-title">管理者登入</div>
     <div class="modal-sub">請輸入管理者密碼</div>
+    <button class="btn-primary" id="faceIdBtn" onclick="loginWithFaceId()" style="display:none;background:linear-gradient(135deg,#1d4ed8,#7c3aed);margin-bottom:12px">
+      <span style="font-size:16px">🪪</span> Face ID 登入
+    </button>
+    <div id="faceIdDivider" style="display:none;text-align:center;font-size:12px;color:#64748b;margin-bottom:12px">── 或輸入密碼 ──</div>
     <input id="adminPwInput" type="password" placeholder="密碼" />
     <div id="adminPwError" style="color:#f87171;font-size:12px;text-align:center;margin-bottom:10px;display:none">密碼錯誤，請再試一次</div>
     <button class="btn-primary" onclick="checkAdminPw()">進入管理模式</button>
@@ -505,7 +509,7 @@ body {
     </div>
 
     <button class="admin-logout-btn" onclick="adminLogout()">🚪 退出管理模式</button>
-
+    <button id="faceIdSetupBtn" onclick="setupFaceId()" style="width:100%;padding:12px;border-radius:12px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;font-size:14px;cursor:pointer;font-family:inherit;margin-top:8px">🪪 設定 Face ID 快速登入</button>
     <button onclick="location.reload()" style="width:100%;padding:12px;border-radius:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#93c5fd;font-size:14px;cursor:pointer;font-family:inherit;margin-top:8px">📅 重新整理到今天</button>
   </div>
 </div>
@@ -613,6 +617,8 @@ window.showNameModal = function() {
   document.getElementById("nameInput").value = getUserName();
 };
 document.getElementById("nameInput").addEventListener("keydown", e => { if (e.key === "Enter") window.saveName(); });
+document.getElementById("adminPwInput").addEventListener("keydown", e => { if (e.key === "Enter") window.checkAdminPw(); });
+document.getElementById("tempTaskInput").addEventListener("keydown", e => { if (e.key === "Enter") window.addTempTask(); });
 
 if (getUserName()) {
   document.getElementById("nameDisplay").textContent = getUserName();
@@ -648,6 +654,7 @@ window.closeAdminModal = function() {
 window.openAdminModal = function() {
   if (isAdmin) { adminLogout(); return; }
   document.getElementById("adminModal").style.display = "flex";
+  updateFaceIdBtn();
   setTimeout(() => document.getElementById("adminPwInput").focus(), 100);
 };
 window.adminLogout = function() {
@@ -1618,7 +1625,102 @@ function renderTempTasks() {
   }).join('');
 }
 
-// ── Auto detect date change ──
+// ── Face ID / WebAuthn ──
+const FACEID_KEY = "cleaning_admin_faceid";
+
+function isFaceIdSupported() {
+  return window.PublicKeyCredential !== undefined;
+}
+
+function hasFaceIdRegistered() {
+  return !!localStorage.getItem(FACEID_KEY);
+}
+
+// 開啟登入 modal 時，檢查是否有 Face ID 可用
+function updateFaceIdBtn() {
+  const btn = document.getElementById("faceIdBtn");
+  const divider = document.getElementById("faceIdDivider");
+  if (btn && isFaceIdSupported() && hasFaceIdRegistered()) {
+    btn.style.display = "block";
+    divider.style.display = "block";
+  }
+}
+
+// 設定 Face ID（管理者登入後才能設定）
+window.setupFaceId = async function() {
+  if (!isFaceIdSupported()) {
+    showToast("⚠️ 此裝置不支援 Face ID");
+    return;
+  }
+  try {
+    showToast("請進行 Face ID 驗證...");
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    const credential = await navigator.credentials.create({
+      publicKey: {
+        challenge,
+        rp: { name: "清潔日誌", id: location.hostname },
+        user: {
+          id: new TextEncoder().encode("admin"),
+          name: "admin",
+          displayName: "管理者"
+        },
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 },
+          { type: "public-key", alg: -257 }
+        ],
+        authenticatorSelection: {
+          authenticatorAttachment: "platform",
+          userVerification: "required"
+        },
+        timeout: 60000
+      }
+    });
+    // 儲存 credential id
+    const credId = btoa(String.fromCharCode(...new Uint8Array(credential.rawId)));
+    localStorage.setItem(FACEID_KEY, credId);
+    showToast("✅ Face ID 設定完成！下次可直接刷臉登入");
+    document.getElementById("faceIdSetupBtn").textContent = "🪪 重新設定 Face ID";
+  } catch(e) {
+    console.error(e);
+    if (e.name === "NotAllowedError") showToast("❌ Face ID 驗證取消");
+    else showToast("❌ 設定失敗：" + e.message);
+  }
+};
+
+// Face ID 登入
+window.loginWithFaceId = async function() {
+  const credIdStr = localStorage.getItem(FACEID_KEY);
+  if (!credIdStr) { showToast("⚠️ 尚未設定 Face ID"); return; }
+  try {
+    const challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    const credId = Uint8Array.from(atob(credIdStr), c => c.charCodeAt(0));
+    const assertion = await navigator.credentials.get({
+      publicKey: {
+        challenge,
+        allowCredentials: [{ type: "public-key", id: credId }],
+        userVerification: "required",
+        timeout: 60000
+      }
+    });
+    if (assertion) {
+      isAdmin = true;
+      document.getElementById("adminModal").style.display = "none";
+      document.getElementById("adminPwInput").value = "";
+      document.getElementById("adminPwError").style.display = "none";
+      document.getElementById("tabAdmin").style.display = "";
+      document.getElementById("tabHistory").style.display = "";
+      document.getElementById("adminBadge").style.display = "";
+      document.querySelector('button[onclick="openAdminModal()"]').textContent = "🚪 退出管理模式";
+      switchTab("admin");
+      showToast("✅ Face ID 驗證成功，已進入管理模式");
+    }
+  } catch(e) {
+    if (e.name === "NotAllowedError") showToast("❌ Face ID 驗證取消或失敗");
+    else showToast("❌ 驗證失敗：" + e.message);
+  }
+};
 setInterval(() => {
   const newDate = getTodayKey();
   if (newDate !== TODAY) {
@@ -1626,6 +1728,13 @@ setInterval(() => {
     setTimeout(() => location.reload(), 1500);
   }
 }, 60000);
+
+// 如果已設定 Face ID，更新按鈕文字
+if (hasFaceIdRegistered()) {
+  const btn = document.getElementById("faceIdSetupBtn");
+  if (btn) btn.textContent = "🪪 重新設定 Face ID";
+}
+
 listenItems();
 listenRecords();
 listenUsers();
