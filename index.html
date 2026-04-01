@@ -1158,7 +1158,7 @@ function renderAdminItems() {
   const el = document.getElementById("adminItemsList");
   if (ITEMS.length === 0) { el.innerHTML = '<div class="loading">尚無項目</div>'; return; }
   el.innerHTML = ITEMS.map((item, idx) => `
-    <div class="admin-card" draggable="true" data-id="${item.id}" data-idx="${idx}" style="flex-direction:column;align-items:stretch">
+    <div class="admin-card" data-id="${item.id}" data-idx="${idx}" style="flex-direction:column;align-items:stretch">
       <div style="display:flex;align-items:center;gap:12px">
         <span class="drag-handle" title="拖曳排序">⠿</span>
         <span style="font-size:20px">${item.icon}</span>
@@ -1231,27 +1231,107 @@ window.saveItemEdit = async function(itemId) {
 
 function initDragSort(container, onSave) {
   let dragEl = null;
-  container.querySelectorAll('.admin-card').forEach(card => {
-    card.addEventListener('dragstart', e => {
-      dragEl = card;
-      card.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
+  let placeholder = null;
+  let startY = 0;
+  let offsetY = 0;
+
+  function getCardAt(x, y) {
+    const cards = [...container.querySelectorAll('.admin-card')].filter(c => c !== dragEl);
+    return cards.find(card => {
+      const r = card.getBoundingClientRect();
+      return y >= r.top && y <= r.bottom;
     });
-    card.addEventListener('dragend', () => {
-      card.classList.remove('dragging');
-      container.querySelectorAll('.admin-card').forEach(c => c.classList.remove('drag-over'));
-      onSave(container);
-    });
-    card.addEventListener('dragover', e => {
-      e.preventDefault();
-      if (card === dragEl) return;
-      container.querySelectorAll('.admin-card').forEach(c => c.classList.remove('drag-over'));
-      card.classList.add('drag-over');
-      const rect = card.getBoundingClientRect();
+  }
+
+  function onMove(clientY) {
+    if (!dragEl) return;
+    dragEl.style.top = (clientY - offsetY) + 'px';
+    const target = getCardAt(0, clientY);
+    if (target) {
+      const rect = target.getBoundingClientRect();
       const mid = rect.top + rect.height / 2;
-      if (e.clientY < mid) container.insertBefore(dragEl, card);
-      else container.insertBefore(dragEl, card.nextSibling);
+      if (clientY < mid) container.insertBefore(placeholder, target);
+      else container.insertBefore(placeholder, target.nextSibling);
+    }
+  }
+
+  function onEnd() {
+    if (!dragEl) return;
+    dragEl.style.position = '';
+    dragEl.style.top = '';
+    dragEl.style.left = '';
+    dragEl.style.width = '';
+    dragEl.style.zIndex = '';
+    dragEl.style.opacity = '';
+    dragEl.style.pointerEvents = '';
+    dragEl.classList.remove('dragging');
+    container.insertBefore(dragEl, placeholder);
+    placeholder.remove();
+    placeholder = null;
+    dragEl = null;
+    onSave(container);
+  }
+
+  container.querySelectorAll('.drag-handle').forEach(handle => {
+    // ── Mouse ──
+    handle.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const card = handle.closest('.admin-card');
+      dragEl = card;
+      const rect = card.getBoundingClientRect();
+      offsetY = e.clientY - rect.top;
+      placeholder = document.createElement('div');
+      placeholder.style.cssText = `height:${rect.height}px;margin-bottom:8px;border-radius:12px;background:rgba(59,130,246,0.1);border:2px dashed #3b82f6;`;
+      container.insertBefore(placeholder, card.nextSibling);
+      card.style.position = 'fixed';
+      card.style.top = (e.clientY - offsetY) + 'px';
+      card.style.left = rect.left + 'px';
+      card.style.width = rect.width + 'px';
+      card.style.zIndex = '999';
+      card.style.opacity = '0.9';
+      card.style.pointerEvents = 'none';
+      card.classList.add('dragging');
+
+      const onMouseMove = e => onMove(e.clientY);
+      const onMouseUp = () => {
+        onEnd();
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
     });
+
+    // ── Touch ──
+    handle.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const card = handle.closest('.admin-card');
+      dragEl = card;
+      const rect = card.getBoundingClientRect();
+      offsetY = touch.clientY - rect.top;
+      placeholder = document.createElement('div');
+      placeholder.style.cssText = `height:${rect.height}px;margin-bottom:8px;border-radius:12px;background:rgba(59,130,246,0.1);border:2px dashed #3b82f6;`;
+      container.insertBefore(placeholder, card.nextSibling);
+      card.style.position = 'fixed';
+      card.style.top = (touch.clientY - offsetY) + 'px';
+      card.style.left = rect.left + 'px';
+      card.style.width = rect.width + 'px';
+      card.style.zIndex = '999';
+      card.style.opacity = '0.9';
+      card.style.pointerEvents = 'none';
+      card.classList.add('dragging');
+    }, { passive: false });
+
+    handle.addEventListener('touchmove', e => {
+      e.preventDefault();
+      onMove(e.touches[0].clientY);
+    }, { passive: false });
+
+    handle.addEventListener('touchend', e => {
+      e.preventDefault();
+      onEnd();
+    }, { passive: false });
   });
 }
 
@@ -1276,7 +1356,7 @@ function renderAdminAreas() {
   el.innerHTML = `
     ${areas.length === 0 ? '<div style="color:#64748b;font-size:13px;padding:8px 0">尚無區域，請先新增</div>' :
       areas.map((area, idx) => `
-        <div class="admin-card" draggable="true" data-area="${area}" data-idx="${idx}" style="flex-direction:column;align-items:stretch">
+        <div class="admin-card" data-area="${area}" data-idx="${idx}" style="flex-direction:column;align-items:stretch">
           <div style="display:flex;align-items:center;gap:12px">
             <span class="drag-handle" title="拖曳排序">⠿</span>
             <div class="admin-card-info">
