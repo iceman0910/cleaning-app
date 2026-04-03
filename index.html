@@ -1086,6 +1086,15 @@ window.switchTab = function(tab) {
 };
 
 // ── History ──
+function getScheduledItemsForDate(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  const dow = d.getDay(); // 0=日,1=一,...,6=六
+  return ITEMS.filter(item => {
+    if (!item.scheduleDays || item.scheduleDays.length === 0) return true;
+    return item.scheduleDays.includes(dow);
+  });
+}
+
 function renderHistory() {
   const dates = Object.keys(allRecords).sort().reverse();
   const list = document.getElementById("historyList");
@@ -1093,10 +1102,11 @@ function renderHistory() {
     list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div>尚無歷史紀錄</div></div>';
     return;
   }
-  const total = ITEMS.length;
   list.innerHTML = dates.map(date => {
     const rec = allRecords[date] || {};
-    const cnt = Object.keys(rec).length;
+    const scheduledItems = getScheduledItemsForDate(date);
+    const total = scheduledItems.length;
+    const cnt = scheduledItems.filter(item => !!rec[item.id]).length;
     const pct = total > 0 ? Math.round(cnt / total * 100) : 0;
     const color = pct === 100 ? "#22c55e" : pct >= 50 ? "#f59e0b" : "#ef4444";
     const isToday = date === TODAY;
@@ -1131,10 +1141,11 @@ function renderHistoryDetail() {
   if (!selectedHistory) { el.innerHTML = ""; return; }
   const rec = allRecords[selectedHistory] || {};
   const isToday = selectedHistory === TODAY;
+  const scheduledItems = getScheduledItemsForDate(selectedHistory);
   el.innerHTML = `
     <div class="detail-box">
       <div class="detail-title">📋 ${formatDate(selectedHistory)} 詳細紀錄</div>
-      ${ITEMS.map(item => {
+      ${scheduledItems.map(item => {
         const info = rec[item.id];
         const photos = info?.photos || [];
         return `
