@@ -563,6 +563,7 @@ let allRecords = {};
 let allUsers = {};
 let selectedHistory = null;
 let tempTasks = {}; // 今日臨時任務
+let allTempTasks = {}; // 所有日期的臨時任務（歷史紀錄用）
 let isAdmin = false;
 let newRequirePhoto = false;
 let newScheduleDays = []; // 新增項目時的排程星期幾選擇
@@ -757,9 +758,15 @@ function listenUsers() {
 }
 
 function listenTempTasks() {
+  // 今天的臨時任務
   onValue(dbRef(db, "tempTasks/" + TODAY), snap => {
     tempTasks = snap.val() || {};
     renderTempTasks();
+  });
+  // 所有日期的臨時任務（歷史紀錄用）
+  onValue(dbRef(db, "tempTasks"), snap => {
+    allTempTasks = snap.val() || {};
+    if (currentTab === "history") renderHistory();
   });
 }
 
@@ -1168,6 +1175,33 @@ function renderHistoryDetail() {
             ` : ''}
           </div>`;
       }).join('')}
+      ${(() => {
+        const dayTempTasks = Object.values(allTempTasks[selectedHistory] || {});
+        if (dayTempTasks.length === 0) return '';
+        return `
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #334155">
+            <div style="font-size:12px;font-weight:700;color:#f59e0b;margin-bottom:8px">⚡ 當日臨時任務</div>
+            ${dayTempTasks.map(task => `
+              <div class="detail-item">
+                <div class="detail-item-row">
+                  <span style="font-size:18px">⚡</span>
+                  <div style="flex:1">
+                    <div style="font-size:13px;font-weight:${task.done?600:400};color:${task.done?'#86efac':'#64748b'}">${task.label}${task.requirePhoto ? ' 📸' : ''}</div>
+                    <div style="font-size:11px;color:#64748b">
+                      ${task.done ? `✅ ${task.doneBy} · ${task.doneAt}` : `由 ${task.by} 新增 · 未完成`}
+                    </div>
+                  </div>
+                  <span>${task.done ? "✅" : "⬜"}</span>
+                </div>
+                ${task.photoUrl ? `
+                  <div class="detail-photos">
+                    <img class="detail-photo-thumb" src="${task.photoUrl}"
+                      onclick="openPhotoViewer('${task.photoUrl}','${task.doneBy} · ${task.doneAt}','temp_${task.id}',${isToday})">
+                  </div>` : ''}
+              </div>
+            `).join('')}
+          </div>`;
+      })()}
     </div>`;
 }
 
