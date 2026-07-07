@@ -1575,25 +1575,61 @@ window.deleteUser = async function(uid, name) {
 function renderAdminRecords() {
   const el = document.getElementById("adminRecordsList");
   const dates = Object.keys(allRecords).sort().reverse();
-  if (dates.length === 0) { el.innerHTML = '<div style="color:#64748b;font-size:13px;padding:8px">尚無紀錄</div>'; return; }
-  el.innerHTML = dates.map(date => {
-    const cnt = Object.keys(allRecords[date] || {}).length;
-    const isToday = date === TODAY;
-    return `
-      <div class="admin-card">
-        <span style="font-size:20px">📅</span>
-        <div class="admin-card-info">
-          <div class="admin-card-name">${isToday ? "📌 今天 " : ""}${date}</div>
-          <div class="admin-card-sub">已完成 ${cnt} 項</div>
-        </div>
-        <button class="btn-danger" onclick="deleteRecord('${date}')">刪除</button>
-      </div>`;
-  }).join('');
+  const cutoff = getDateBefore30Days();
+  const oldCount = dates.filter(d => d < cutoff).length;
+
+  el.innerHTML = `
+    <div style="background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:10px">
+      <div style="font-size:13px;color:#e2e8f0;margin-bottom:4px">一鍵清理舊紀錄</div>
+      <div style="font-size:11px;color:#64748b;margin-bottom:10px">
+        ${oldCount > 0 ? `發現 <span style="color:#f59e0b;font-weight:700">${oldCount} 天</span>超過 30 天的紀錄` : '✅ 目前沒有超過 30 天的紀錄'}
+      </div>
+      <button onclick="cleanupOldRecords()" style="width:100%;padding:10px;border-radius:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#f87171;font-size:13px;cursor:pointer;font-family:inherit" ${oldCount === 0 ? 'disabled style="opacity:0.4;cursor:not-allowed"' : ''}>
+        🗑️ 清除 30 天前的所有紀錄
+      </button>
+    </div>
+    ${dates.length === 0 ? '<div style="color:#64748b;font-size:13px;padding:8px">尚無紀錄</div>' :
+      dates.map(date => {
+        const cnt = Object.keys(allRecords[date] || {}).length;
+        const isToday = date === TODAY;
+        const isOld = date < cutoff;
+        return `
+          <div class="admin-card" style="${isOld ? 'opacity:0.6' : ''}">
+            <span style="font-size:20px">📅</span>
+            <div class="admin-card-info">
+              <div class="admin-card-name">${isToday ? "📌 今天 " : ""}${date} ${isOld ? '<span style="font-size:10px;color:#f87171">• 超過30天</span>' : ''}</div>
+              <div class="admin-card-sub">已完成 ${cnt} 項</div>
+            </div>
+            <button class="btn-danger" onclick="deleteRecord('${date}')">刪除</button>
+          </div>`;
+      }).join('')
+    }`;
 }
+
+window.cleanupOldRecords = async function() {
+  const cutoff = getDateBefore30Days();
+  const oldDates = Object.keys(allRecords).filter(d => d < cutoff);
+  const oldTempDates = Object.keys(allTempTasks).filter(d => d < cutoff);
+  if (oldDates.length === 0 && oldTempDates.length === 0) {
+    showToast("✅ 沒有需要清理的紀錄");
+    return;
+  }
+  if (!confirm(`確定要刪除 ${oldDates.length} 天超過 30 天的紀錄嗎？\n（含當天的臨時任務紀錄，此操作無法復原）`)) return;
+
+  for (const date of oldDates) {
+    await remove(dbRef(db, "records/" + date));
+  }
+  for (const date of oldTempDates) {
+    await remove(dbRef(db, "tempTasks/" + date));
+  }
+  showToast(`✅ 已清除 ${oldDates.length} 天的舊紀錄`);
+  renderAdminRecords();
+};
 
 window.deleteRecord = async function(date) {
   if (!confirm(`確定要刪除 ${date} 的全部紀錄嗎？\n此操作無法復原。`)) return;
   await remove(dbRef(db, "records/" + date));
+  await remove(dbRef(db, "tempTasks/" + date));
   if (date === TODAY) todayRecord = {};
   showToast("🗑️ 已刪除 " + date + " 的紀錄");
 };
